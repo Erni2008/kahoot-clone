@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Quiz Host</title>
+<style>
+body {
+    margin:0;
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #1f1c2c, #928dab);
+    color:white;
+}
+.container {
+    max-width:900px;
+    margin:auto;
+    padding:40px;
+}
+.card {
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(10px);
+    padding:25px;
+    border-radius:20px;
+    margin-bottom:20px;
+}
+button {
+    padding:12px 20px;
+    border:none;
+    border-radius:12px;
+    font-size:16px;
+    cursor:pointer;
+    margin:5px;
+}
+.primary { background:#6c5ce7; color:white; }
+.success { background:#00b894; color:white; }
+.warning { background:#fdcb6e; color:black; }
+.pin {
+    font-size:40px;
+    font-weight:bold;
+    letter-spacing:6px;
+}
+.players span {
+    background:#2d3436;
+    padding:6px 12px;
+    border-radius:8px;
+    margin:5px;
+    display:inline-block;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<div class="card">
+<h1>Stream Quiz Host</h1>
+<button class="primary" onclick="createRoom()">Create Room</button>
+<div class="pin" id="pinDisplay"></div>
+<button class="success" onclick="connect()">Connect</button>
+<button class="warning" onclick="start()">Start</button>
+<button class="primary" onclick="reveal()">Reveal</button>
+</div>
+
+<div class="card">
+<h2 id="question"></h2>
+<h3 id="answered"></h3>
+</div>
+
+<div class="card players">
+<h3>Players</h3>
+<div id="players"></div>
+</div>
+
+<div class="card">
+<h3>Leaderboard</h3>
+<div id="scores"></div>
+</div>
+
+</div>
+
+<script>
+let socket;
+let currentPin="";
+
+async function createRoom(){
+    const res = await fetch("/create-room");
+    const data = await res.json();
+    currentPin = data.pin;
+    document.getElementById("pinDisplay").innerText = data.pin;
+}
+
+function connect(){
+    socket = new WebSocket(`ws://${location.host}/ws/host/${currentPin}/host`);
+
+    socket.onmessage = (event)=>{
+        const data = JSON.parse(event.data);
+
+        if(data.type==="players_update"){
+            const div=document.getElementById("players");
+            div.innerHTML="";
+            data.players.forEach(p=>{
+                div.innerHTML+=`<span>${p}</span>`;
+            });
+        }
+
+        if(data.type==="question"){
+            document.getElementById("question").innerText=data.question;
+        }
+
+        if(data.type==="answered_count"){
+            document.getElementById("answered").innerText=
+                data.count+" / "+data.total+" answered";
+        }
+
+        if(data.type==="result"){
+            let s="";
+            for(let u in data.scores){
+                s+=u+": "+data.scores[u]+"<br>";
+            }
+            document.getElementById("scores").innerHTML=s;
+        }
+    };
+}
+
+function start(){
+    socket.send(JSON.stringify({type:"start"}));
+}
+
+function reveal(){
+    socket.send(JSON.stringify({type:"reveal"}));
+}
+</script>
+
+</body>
+</html>

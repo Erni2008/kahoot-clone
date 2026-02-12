@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Join Quiz</title>
+<style>
+body {
+    margin:0;
+    font-family:'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #141e30, #243b55);
+    color:white;
+    text-align:center;
+}
+.container {
+    margin-top:80px;
+}
+input {
+    padding:10px;
+    margin:10px;
+    border-radius:10px;
+    border:none;
+}
+button {
+    width:240px;
+    height:80px;
+    margin:15px;
+    border:none;
+    border-radius:15px;
+    font-size:20px;
+    color:white;
+    cursor:pointer;
+    transition: transform 0.1s;
+}
+button:hover { transform: scale(1.05); }
+.red { background:#e74c3c; }
+.blue { background:#3498db; }
+.yellow { background:#f1c40f; color:black; }
+.green { background:#2ecc71; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<h1>Join Game</h1>
+
+<input id="name" placeholder="Your name">
+<input id="pin" placeholder="PIN">
+<button onclick="join()">Join</button>
+
+<h2 id="question"></h2>
+<div id="answers"></div>
+
+</div>
+
+<script>
+let socket;
+
+function join(){
+    const name=document.getElementById("name").value;
+    const pin=document.getElementById("pin").value;
+
+    socket=new WebSocket(`ws://${location.host}/ws/player/${pin}/${name}`);
+
+    socket.onmessage=(event)=>{
+        const data=JSON.parse(event.data);
+
+        if(data.type==="question"){
+            document.getElementById("question").innerText=data.question;
+            const colors=["red","blue","yellow","green"];
+            const ansDiv=document.getElementById("answers");
+            ansDiv.innerHTML="";
+
+            data.answers.forEach((a,i)=>{
+                const btn=document.createElement("button");
+                btn.innerText=a;
+                btn.className=colors[i];
+                btn.onclick=()=>{
+                    socket.send(JSON.stringify({
+                        type:"answer",
+                        selected:i
+                    }));
+                    btn.disabled=true;
+                };
+                ansDiv.appendChild(btn);
+            });
+        }
+    };
+}
+</script>
+
+</body>
+</html>
