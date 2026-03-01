@@ -1708,6 +1708,38 @@ def generate_pin():
         if pin not in rooms:
             return pin
 
+
+async def close_room_and_notify(room: str, message: str = "Тест завершен"):
+    if room not in rooms:
+        return False
+
+    room_data = rooms[room]
+
+    for ws in list(room_data.get("players", {}).values()):
+        try:
+            await ws.send_json({
+                "type": "test_aborted",
+                "message": message
+            })
+        except Exception:
+            pass
+        try:
+            await ws.close()
+        except Exception:
+            pass
+
+    if room_data.get("host"):
+        try:
+            await room_data["host"].send_json({
+                "type": "return_to_lobby",
+                "message": "Тест завершён. Игроки удалены."
+            })
+        except Exception:
+            pass
+
+    del rooms[room]
+    return True
+
 @app.get("/")
 async def root():
     return FileResponse("static/host.html")
@@ -1791,9 +1823,17 @@ async def create_room(quiz: str, request: Request):
         "disconnected": {},  # map username -> last_seen_ts
         "disconnect_grace": 180,  # seconds
         "question_history": [],
+        "current_payload": None,
+        "current_view": "waiting",
     }
 
     return {"pin": pin}
+
+
+@app.post("/close-room/{room}")
+async def close_room(room: str):
+    closed = await close_room_and_notify(room, "Тест завершен")
+    return {"ok": closed}
 
 @app.websocket("/ws/{role}/{room}/{username}")
 async def websocket_endpoint(websocket: WebSocket, role: str, room: str, username: str):
@@ -1822,9 +1862,11 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
 
         existing_ws = room_data.get("players", {}).get(username)
         existing_score = room_data.get("scores", {}).get(username)
+        is_known_player = existing_score is not None
+        was_disconnected = username in room_data.get("disconnected", {})
 
         # If the game already started and this username is not known -> block join
-        if room_data.get("status") != "waiting" and existing_score is None:
+        if room_data.get("status") != "waiting" and not is_known_player:
             await websocket.send_json({
                 "type": "error",
                 "message": "Game already started"
@@ -1848,7 +1890,31 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
         # Clear disconnected marker on successful reconnect
         room_data.setdefault("disconnected", {}).pop(username, None)
 
-        await websocket.send_json({"type": "waiting"})
+        if room_data.get("status") == "waiting":
+            await websocket.send_json({"type": "waiting"})
+        elif is_known_player:
+            current_payload = room_data.get("current_payload")
+            if isinstance(current_payload, dict):
+                payload_to_send = dict(current_payload)
+                if room_data.get("current_view") == "question":
+                    if room_data.get("paused"):
+                        payload_to_send["time"] = max(0, int(round(float(room_data.get("remaining_time") or 0))))
+                    else:
+                        question_start = room_data.get("question_start")
+                        question_duration = float(room_data.get("question_duration") or 0)
+                        if question_start:
+                            elapsed = time.time() - float(question_start)
+                            remaining = max(0.0, question_duration - elapsed)
+                            payload_to_send["time"] = max(0, int(remaining + 0.999))
+                await websocket.send_json(payload_to_send)
+                if room_data.get("paused") and room_data.get("current_view") == "question":
+                    await websocket.send_json({
+                        "type": "paused",
+                        "time": room_data.get("remaining_time", 0)
+                    })
+
+        if was_disconnected:
+            await notify_host_player_connection(room, username, "reconnected")
         await update_players(room)
 
     try:
@@ -2066,6 +2132,8 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
                 room_data["status"] = "active"
                 room_data["paused"] = False
                 room_data["remaining_time"] = None
+                room_data["current_payload"] = None
+                room_data["current_view"] = "question"
                 await send_question(room)
 
             # PAUSE / RESUME
@@ -2116,6 +2184,8 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
                 room_data["remaining_time"] = None
 
                 room_data["question_index"] += 1
+                room_data["current_payload"] = None
+                room_data["current_view"] = "question"
                 await send_question(room)
 
             if role == "host" and data["type"] == "force_reveal":
@@ -2135,7 +2205,7 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
                     try:
                         await ws_player.send_json({
                             "type": "test_aborted",
-                            "message": "Тест был прерван ведущим"
+                            "message": "Тест завершен"
                         })
                     except:
                         pass
@@ -2156,6 +2226,8 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
                 room_data["appeals"] = []
                 room_data["appeal_dedup"] = {}
                 room_data["question_history"] = []
+                room_data["current_payload"] = None
+                room_data["current_view"] = "waiting"
 
                 # Inform host to reset UI (but DO NOT close host socket)
                 await websocket.send_json({
@@ -2173,6 +2245,7 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
             if role == "player" and room_data.get("players", {}).get(username) is websocket:
                 # Mark disconnected, keep score/state for a short grace window.
                 room_data.setdefault("disconnected", {})[username] = time.time()
+                await notify_host_player_connection(room, username, "disconnected")
                 await update_players(room)
 
                 async def _cleanup_if_not_back(pin: str, user: str):
@@ -2200,10 +2273,10 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
                 asyncio.create_task(_cleanup_if_not_back(room, username))
 
             if role == "host":
-                # Если ведущий отключился — расформировать комнату
+                # Если ведущий отключился — завершить тест для всех игроков
                 await broadcast(room, {
-                    "type": "room_closed",
-                    "message": "Комната расформирована ведущим"
+                    "type": "test_aborted",
+                    "message": "Тест завершен"
                 })
 
                 for ws in room_data.get("players", {}).values():
@@ -2225,11 +2298,14 @@ async def send_question(room):
         # Финальный leaderboard
         sorted_scores = sorted(room_data["scores"].items(), key=lambda x: x[1], reverse=True)
 
-        await broadcast(room, {
+        game_over_payload = {
             "type": "game_over",
             "leaderboard": sorted_scores,
             "streaks": room_data.get("streaks", {})
-        })
+        }
+        await broadcast(room, game_over_payload)
+        room_data["current_payload"] = game_over_payload
+        room_data["current_view"] = "game_over"
 
         # ⚠️ НЕ удаляем комнату автоматически
         # Ожидаем, пока ведущий создаст новую игру
@@ -2276,6 +2352,21 @@ async def send_question(room):
         "time": question_time,
         "max_select": max_select
     })
+    room_data["current_payload"] = {
+        "type": "question",
+        "question_type": question.get("type", "mcq"),
+        "question": display_question_text,
+        "answers": question.get("answers"),
+        "image": question.get("image"),
+        "audio": question.get("audio"),
+        "image_zoom": question.get("image_zoom"),
+        "image_position": question.get("image_position"),
+        "image_offset": question.get("image_offset"),
+        "points": question.get("points", 1000),
+        "time": question_time,
+        "max_select": max_select
+    }
+    room_data["current_view"] = "question"
 
     current_index = room_data["question_index"]
     asyncio.create_task(reveal_after_delay(room, question_time, current_index))
@@ -2429,7 +2520,7 @@ async def send_reveal(room, question_index):
         "answered_count": len(users_answers),
     })
 
-    await broadcast(room, {
+    reveal_payload = {
         "type": "reveal",
         "question_type": q_type,
         "correct": correct,
@@ -2447,15 +2538,21 @@ async def send_reveal(room, question_index):
         "users_answers": users_answers,
         "points": question.get("points", 1000),
         "points_awarded": points_awarded
-    })
+    }
+    await broadcast(room, reveal_payload)
+    room_data["current_payload"] = reveal_payload
+    room_data["current_view"] = "reveal"
 
     await asyncio.sleep(2)
 
-    await broadcast(room, {
+    leaderboard_payload = {
         "type": "leaderboard",
         "leaderboard": leaderboard,
         "total_scores": room_data["scores"]
-    })
+    }
+    await broadcast(room, leaderboard_payload)
+    room_data["current_payload"] = leaderboard_payload
+    room_data["current_view"] = "leaderboard"
 
 async def reveal_after_delay(room, delay, question_index):
 
@@ -2505,6 +2602,20 @@ async def broadcast(room, message):
             await ws.send_json(message)
         except:
             pass
+
+
+async def notify_host_player_connection(room: str, username: str, status: str):
+    room_data = rooms.get(room)
+    if not room_data or not room_data.get("host"):
+        return
+    try:
+        await room_data["host"].send_json({
+            "type": "player_connection",
+            "username": username,
+            "status": status,
+        })
+    except Exception:
+        pass
 
 from fastapi.responses import StreamingResponse
 import io

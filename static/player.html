@@ -941,6 +941,7 @@ button,
 <input id="pin" placeholder="Код комнаты">
 <br>
 <button onclick="join()">Войти</button>
+<button id="returnBtn" onclick="returnToSavedGame()" style="display:none;">Вернуться в игру</button>
 <div id="error"></div>
 </div>
 
@@ -959,12 +960,37 @@ let ws = null;
 let wsJoin = null;              // { pin, name }
 let reconnectTimer = null;
 let reconnectAttempt = 0;
+let suppressReconnectOnClose = false;
 
 let heartbeatTimer = null;
 let lastPongAt = Date.now();
 
 const HEARTBEAT_MS = 15000;     // ping every 15s
 const PONG_TIMEOUT_MS = 45000;  // if no pong for 45s -> reconnect
+
+function saveJoinSession(){
+  if(!wsJoin || !wsJoin.pin || !wsJoin.name) return;
+  try{ sessionStorage.setItem("kahoot_last_join_session", JSON.stringify(wsJoin)); }catch(e){}
+}
+
+function clearJoinSession(){
+  try{ sessionStorage.removeItem("kahoot_last_join_session"); }catch(e){}
+}
+
+function updateReturnButton(){
+  const btn = document.getElementById("returnBtn");
+  if(!btn) return;
+  btn.style.display = (wsJoin && wsJoin.pin && wsJoin.name) ? "inline-block" : "none";
+}
+
+function returnToSavedGame(){
+  if(!wsJoin || !wsJoin.pin || !wsJoin.name) return;
+  document.getElementById("error").innerHTML = "";
+  document.getElementById("joinSection").style.display = "none";
+  document.getElementById("gameSection").style.display = "block";
+  document.getElementById("content").innerHTML = "<div class='waiting'>Переподключение к игре...</div>";
+  connectPlayerWS(false);
+}
 
 function buildPlayerWsUrl(pin, name){
   const protocol = location.protocol === "https:" ? "wss" : "ws";
@@ -1008,7 +1034,12 @@ function connectPlayerWS(isReconnect=false){
   if(!wsJoin || !wsJoin.pin || !wsJoin.name) return;
 
   // close old
-  try{ if(ws) ws.close(); }catch(e){}
+  try{
+    if(ws){
+      suppressReconnectOnClose = true;
+      ws.close();
+    }
+  }catch(e){}
 
   ws = new WebSocket(buildPlayerWsUrl(wsJoin.pin, wsJoin.name));
   socket = ws; // alias so existing code keeps working
@@ -1045,6 +1076,11 @@ function connectPlayerWS(isReconnect=false){
   ws.onclose = ()=>{
     stopHeartbeat();
 
+    if(suppressReconnectOnClose){
+      suppressReconnectOnClose = false;
+      return;
+    }
+
     // If room was closed / kicked we don't reconnect (the old code sets closedByRoom)
     if(closedByRoom){
       closedByRoom = false;
@@ -1056,14 +1092,14 @@ function connectPlayerWS(isReconnect=false){
   };
 }
 
-// restore last join (optional)
 document.addEventListener("DOMContentLoaded", ()=>{
   try{
-    const saved = JSON.parse(localStorage.getItem("kahoot_last_join") || "null");
+    const saved = JSON.parse(sessionStorage.getItem("kahoot_last_join_session") || "null");
     if(saved && saved.pin && saved.name){
       wsJoin = saved;
     }
   }catch(e){}
+  updateReturnButton();
 });
 
 // handle background/foreground
@@ -1095,6 +1131,89 @@ let audioTick = null;
 
 let lastRevealId = null;
 let lastWasWrong = false;
+
+function getQuestionStorageKey(payload){
+    if(!payload) return "";
+    return JSON.stringify({
+        q: payload.question || "",
+        t: payload.question_type || "mcq"
+    });
+}
+
+function persistCurrentAnswerState(){
+    const key = getQuestionStorageKey(lastQuestionPayload);
+    if(!key) return;
+    try{
+        localStorage.setItem("kahoot_last_answer_state", JSON.stringify({
+            key,
+            submittedAnswer: mySubmittedAnswer,
+            submittedChoice: mySubmittedChoice,
+            submittedChoices: mySubmittedChoices,
+        }));
+    }catch(e){}
+}
+
+function getPersistedAnswerState(){
+    try{
+        const raw = JSON.parse(localStorage.getItem("kahoot_last_answer_state") || "null");
+        if(!raw || raw.key !== getQuestionStorageKey(lastQuestionPayload)){
+            return null;
+        }
+        return raw;
+    }catch(e){
+        return null;
+    }
+}
+
+function restoreAnswerStateForCurrentQuestion(){
+    const saved = getPersistedAnswerState();
+    if(!saved) return;
+
+    if(Array.isArray(saved.submittedChoices) && saved.submittedChoices.length){
+        selectedAnswers = [...saved.submittedChoices];
+        mySubmittedChoices = [...saved.submittedChoices];
+        mySubmittedChoice = null;
+        document.querySelectorAll(".answer-card").forEach((btn, index)=>{
+            if(saved.submittedChoices.includes(index)){
+                btn.classList.add("selected");
+            }
+            btn.style.pointerEvents = "none";
+            btn.style.opacity = "0.9";
+        });
+        return;
+    }
+
+    if(Number.isInteger(saved.submittedChoice)){
+        myAnswerIndex = saved.submittedChoice;
+        mySubmittedChoice = saved.submittedChoice;
+        selectedAnswers = [saved.submittedChoice];
+        document.querySelectorAll(".answer-card").forEach((btn, index)=>{
+            if(index === saved.submittedChoice){
+                btn.classList.add("selected");
+            }
+            btn.style.pointerEvents = "none";
+            btn.style.opacity = index === saved.submittedChoice ? "1" : "0.9";
+        });
+        return;
+    }
+
+    if(saved.submittedAnswer !== null && saved.submittedAnswer !== undefined){
+        answered = true;
+        mySubmittedAnswer = String(saved.submittedAnswer);
+        const textInput = document.getElementById("textInput");
+        const numericInput = document.getElementById("numericInput");
+        const input = textInput || numericInput;
+        if(input){
+            input.value = String(saved.submittedAnswer);
+            input.disabled = true;
+            const btn = input.nextElementSibling;
+            if(btn){
+                btn.classList.add("disabled");
+                btn.style.opacity = "0.6";
+            }
+        }
+    }
+}
 
 
 // === Kahoot-style leaderboard animation ===
@@ -1491,13 +1610,46 @@ function handlePlayerMessage(raw){
             overlay.classList.add("hidden");
         }
 
+    document.getElementById("joinSection").style.display = "block";
+    document.getElementById("gameSection").style.display = "none";
+    document.getElementById("content").innerHTML = "";
+    document.getElementById("error").innerHTML =
+            "<div class='error'>Вы кикнуты ведущим</div>";
+        clearJoinSession();
+        updateReturnButton();
+
+        // Полный сброс состояния
+        document.getElementById("name").value = "";
+        document.getElementById("pin").value = "";
+        answered = false;
+        myAnswerIndex = null;
+        socket = null;
+
+        return;
+    }
+
+    if(data.type === "test_aborted"){
+        closedByRoom = true;
+
+        if(socket){
+            try{ socket.close(); }catch(e){}
+        }
+
+        clearInterval(timerInterval);
+        cleanupQuestionAudio();
+        const overlay = document.getElementById("pauseOverlay");
+        if(overlay){
+            overlay.classList.add("hidden");
+        }
+
         document.getElementById("joinSection").style.display = "block";
         document.getElementById("gameSection").style.display = "none";
         document.getElementById("content").innerHTML = "";
         document.getElementById("error").innerHTML =
-            "<div class='error'>Вы кикнуты ведущим</div>";
+            `<div class='error'>${data.message || "Тест завершен"}</div>`;
+        clearJoinSession();
+        updateReturnButton();
 
-        // Полный сброс состояния
         document.getElementById("name").value = "";
         document.getElementById("pin").value = "";
         answered = false;
@@ -1525,7 +1677,9 @@ function handlePlayerMessage(raw){
         document.getElementById("gameSection").style.display = "none";
         document.getElementById("content").innerHTML = "";
         document.getElementById("error").innerHTML =
-            "<div class='error'>Комната расформирована ведущим</div>";
+            "<div class='error'>Тест завершен</div>";
+        clearJoinSession();
+        updateReturnButton();
 
         // Полный сброс состояния
         document.getElementById("name").value = "";
@@ -1713,10 +1867,12 @@ function handlePlayerMessage(raw){
             cleanupQuestionAudio();
         }
 
+        restoreAnswerStateForCurrentQuestion();
         startTimer(data.time);
     }
 
     if(data.type==="finished"){
+        try{ localStorage.removeItem("kahoot_last_answer_state"); }catch(e){}
         document.getElementById("content").innerHTML=
             "<h2>Игра завершена 🎉</h2><button onclick='goBack()'>На главную</button>";
         clearInterval(timerInterval);
@@ -1724,6 +1880,7 @@ function handlePlayerMessage(raw){
     }
 
     if(data.type==="game_over"){
+        try{ localStorage.removeItem("kahoot_last_answer_state"); }catch(e){}
         clearInterval(timerInterval);
         cleanupQuestionAudio();
 
@@ -1829,6 +1986,7 @@ function handlePlayerMessage(raw){
         if(data.reveal_id){
             lastRevealId = data.reveal_id;
         }
+        try{ localStorage.removeItem("kahoot_last_answer_state"); }catch(e){}
         clearInterval(timerInterval);
         const existingMask = document.querySelector(".image-mask");
         if(existingMask){
@@ -2157,7 +2315,8 @@ function join(){
     document.getElementById("content").innerHTML = "";
 
     wsJoin = { pin, name };
-    try{ localStorage.setItem("kahoot_last_join", JSON.stringify(wsJoin)); }catch(e){}
+    saveJoinSession();
+    updateReturnButton();
     connectPlayerWS(false);
 }
 
@@ -2185,6 +2344,7 @@ function answerMCQ(i, element){
                 type:"answer",
                 selected:i
             }));
+            persistCurrentAnswerState();
         } else {
             scheduleReconnect();
         }
@@ -2207,6 +2367,7 @@ function answerMCQ(i, element){
                 type:"answer",
                 selected:selectedAnswers
             }));
+            persistCurrentAnswerState();
         } else {
             scheduleReconnect();
         }
@@ -2226,6 +2387,7 @@ function answerText(){
             type:"answer",
             value:value
         }));
+        persistCurrentAnswerState();
     } else {
         scheduleReconnect();
     }
@@ -2250,6 +2412,7 @@ function answerNumeric(){
             type:"answer",
             value:Number(value)
         }));
+        persistCurrentAnswerState();
     } else {
         scheduleReconnect();
     }
@@ -2316,6 +2479,9 @@ function showError(msg){
 function goBack(){
     closedByRoom = true;
     try{ stopHeartbeat(); }catch(e){}
+    clearJoinSession();
+    updateReturnButton();
+    try{ localStorage.removeItem("kahoot_last_answer_state"); }catch(e){}
     if(socket){
         try{ socket.close(); }catch(e){}
     }

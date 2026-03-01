@@ -2616,6 +2616,17 @@ async function createRoom(){
             return;
         }
 
+        if(data.type === "player_connection"){
+            if(data.username){
+                if(data.status === "disconnected"){
+                    showAppealToast(`Игрок отключился: ${data.username}`);
+                } else if(data.status === "reconnected"){
+                    showAppealToast(`Игрок вернулся: ${data.username}`);
+                }
+            }
+            return;
+        }
+
         // 🔹 Appeal request from player (needs host review)
         if(data.type === "appeal_request"){
             const payload = registerAppeal({
@@ -3562,6 +3573,25 @@ function openExportReport(){
     window.open(`/export/${currentPin}`, "_blank", "noopener");
 }
 
+function notifyRoomCloseOnUnload(){
+    if(!currentPin) return;
+    const url = `/close-room/${encodeURIComponent(currentPin)}`;
+    try{
+        if(navigator.sendBeacon){
+            const blob = new Blob(["1"], { type: "text/plain" });
+            navigator.sendBeacon(url, blob);
+            return;
+        }
+    }catch(e){}
+
+    try{
+        fetch(url, {
+            method: "POST",
+            keepalive: true
+        });
+    }catch(e){}
+}
+
 function proceedNextQuestion(){
     if(!socket || socket.readyState !== WebSocket.OPEN) return;
     if(nextLocked) return;
@@ -3766,6 +3796,8 @@ document.addEventListener("keydown", (event)=>{
         }
     }
 });
+
+window.addEventListener("pagehide", notifyRoomCloseOnUnload);
 </script>
 </body> 
 </html>
