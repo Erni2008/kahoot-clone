@@ -1670,6 +1670,7 @@ button{
     <option value="Акты, титулы и сюжет">Акты, титулы и сюжет</option>
     <option value="Угадай персонажа с картинки">Угадай персонажа с картинки</option>
     <option value="Угадай персонажа по звуку">Угадай персонажа по звуку</option>
+    <option value="Угадай персонажа по описанию">Угадай персонажа по описанию</option>
 </select>
 <button class="primary" onclick="createRoom()">Создать</button>
 </div>
@@ -2738,6 +2739,9 @@ async function createRoom(){
             window.__currentQuestionPoints = Math.trunc(window.__currentQuestionPoints);
 
             let questionHTML = `<div class="question-card fade-in">${data.question}</div>`;
+            if(data.prompt){
+                questionHTML += `<div class="audio-note" style="margin-top:14px;font-size:22px;line-height:1.6;">${data.prompt}</div>`;
+            }
             questionHTML += `<div class="audio-note">⚠️ Важно: <b>пишите полное название чемпиона</b> (без сокращений вроде «бастик», «симба» и т.п.). Я стараюсь распознавать сокращения, но не все варианты получится предугадать — чтобы не было обидных проигрышей и претензий.</div>`;
             if(hasImage){
                 const zoom = data.image_zoom || 3;
@@ -2922,6 +2926,9 @@ async function createRoom(){
             const existingMask = document.querySelector(".image-mask");
 
             let revealHeaderHTML = `<div class="question-card fade-in">${data.question}</div>`;
+            if(data.prompt){
+                revealHeaderHTML += `<div class="audio-note" style="margin-top:14px;font-size:22px;line-height:1.6;">${data.prompt}</div>`;
+            }
             revealHeaderHTML += `<div class="audio-note">⚠️ Важно: <b>пишите полное название чемпиона</b> (без сокращений вроде «бастик», «симба» и т.п.). Я стараюсь распознавать сокращения, но не все варианты получится предугадать — чтобы не было обидных проигрышей и претензий.</div>`;
             if(revealEl) revealEl.innerHTML = revealHeaderHTML;
             showRevealScreen();

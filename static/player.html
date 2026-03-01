@@ -207,20 +207,41 @@ button:hover { transform:scale(1.05); }
     top:50%;
     left:50%;
     transform:translate(-50%,-50%);
-    font-size:48px;
+    min-width:260px;
+    padding:20px 26px;
+    border-radius:26px;
+    text-align:center;
+    font-size:54px;
     font-weight:900;
-    color:#00ffcc;
-    text-shadow:0 0 20px rgba(0,255,200,0.8);
-    animation:pointsFloat 1.5s ease-out forwards;
+    color:#ecfeff;
+    background:linear-gradient(145deg, rgba(16,185,129,.28), rgba(6,182,212,.18));
+    border:1px solid rgba(255,255,255,.16);
+    box-shadow:0 0 0 2px rgba(16,185,129,.18), 0 30px 80px rgba(0,0,0,.36);
+    text-shadow:0 0 20px rgba(255,255,255,0.22);
+    animation:pointsFloat 1.65s ease-out forwards;
     pointer-events:none;
     z-index:9999;
 }
 
+.points-popup .points-label{
+    display:block;
+    margin-bottom:8px;
+    font-size:18px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:#a7f3d0;
+}
+
+.points-popup .points-value{
+    display:block;
+    line-height:1;
+}
+
 @keyframes pointsFloat {
-    0% { opacity:0; transform:translate(-50%,-40%) scale(0.6); }
-    20% { opacity:1; transform:translate(-50%,-50%) scale(1.2); }
-    80% { opacity:1; transform:translate(-50%,-70%) scale(1); }
-    100% { opacity:0; transform:translate(-50%,-90%) scale(0.8); }
+    0% { opacity:0; transform:translate(-50%,-38%) scale(0.72); }
+    18% { opacity:1; transform:translate(-50%,-50%) scale(1.08); }
+    72% { opacity:1; transform:translate(-50%,-66%) scale(1); }
+    100% { opacity:0; transform:translate(-50%,-92%) scale(0.84); }
 }
 
 /* === Fast / Wrong Effects === */
@@ -249,12 +270,13 @@ button:hover { transform:scale(1.05); }
 
 /* === AGGRESSIVE CORRECT / WRONG FLASH (PLAYER) === */
 body.correct-flash{
-    animation:correctFlash 0.6s ease;
+    animation:correctFlash 0.9s ease;
 }
 
 @keyframes correctFlash{
-    0%{ background:#0f3d2e; }
-    40%{ background:#00c853; }
+    0%{ background:#0d3429; }
+    22%{ background:#0f766e; }
+    48%{ background:#22c55e; }
     100%{ background: radial-gradient(circle at top left, #141e30, #243b55); }
 }
 
@@ -1767,6 +1789,9 @@ function handlePlayerMessage(raw){
 `;
 
         html += `<div class="question-title">${data.question}</div>`;
+        if(data.prompt){
+            html += `<div class="audio-note" style="margin-top:14px;font-size:20px;line-height:1.6;">${data.prompt}</div>`;
+        }
 
         // ===== NOTE (FULL CHAMPION NAME) =====
         html += `
@@ -2016,9 +2041,10 @@ function handlePlayerMessage(raw){
                     : 0;
 
                 if(myPoints > 0){
-                    resultDiv.innerText = "✅ Ваш ответ правильный";
+                    resultDiv.innerText = `✅ Верно! +${myPoints} очков`;
                     lastWasWrong = false;
-                    resultDiv.style.color = "#00c853";
+                    resultDiv.style.color = "#34d399";
+                    resultDiv.style.textShadow = "0 0 18px rgba(52,211,153,.35)";
                     document.body.classList.add("correct-flash");
                     setTimeout(()=>{
                         document.body.classList.remove("correct-flash");
@@ -2132,10 +2158,14 @@ function handlePlayerMessage(raw){
 
                 // сильная анимация правильного ответа
                 document.body.classList.add("correct-flash");
+                document.getElementById("content").classList.add("shake");
 
                 const popup = document.createElement("div");
                 popup.className = "points-popup";
-                popup.innerText = "+" + myPoints;
+                popup.innerHTML = `
+                    <span class="points-label">Зачтено</span>
+                    <span class="points-value">+${myPoints}</span>
+                `;
                 document.body.appendChild(popup);
 
                 // если очков много — добавить быстрый glow фон
@@ -2152,6 +2182,7 @@ function handlePlayerMessage(raw){
 
                 setTimeout(()=>{
                     document.body.classList.remove("correct-flash");
+                    document.getElementById("content").classList.remove("shake");
                 },600);
             } else if(myPoints === 0){
                 if(myPoints === 0){
