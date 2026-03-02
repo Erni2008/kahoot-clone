@@ -3622,6 +3622,11 @@ function proceedNextQuestion(){
         timerEl.style.display = "block";
     }
 
+    const timerCircle = document.getElementById("timerCircle");
+    if(timerCircle){
+        timerCircle.style.display = "block";
+    }
+
     const nextBtn = document.getElementById("nextBtn");
     if(nextBtn){
         nextBtn.disabled = true;
@@ -3735,6 +3740,13 @@ function startTimer(seconds){
 
     const circle = document.getElementById("timerCircle");
     const text = document.getElementById("timerText");
+
+    if(circle){
+        circle.style.display = "block";
+    }
+    if(text){
+        text.style.display = "block";
+    }
 
     const radius = 70;
     const circumference = 2 * Math.PI * radius;
