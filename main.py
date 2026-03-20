@@ -5,11 +5,12 @@ import random
 import string
 import time
 import asyncio
+import json
 from typing import Dict
 from difflib import SequenceMatcher
+from collections import deque
 
 import re
-import os
 import html
 
 # =====================
@@ -25,7 +26,6 @@ ANSWER_ALIASES = {
 
 _PUNCT_RE = re.compile(r"[^0-9a-zа-яё\s]+", re.IGNORECASE)
 _SPACE_RE = re.compile(r"\s+", re.UNICODE)
-
 # =====================
 # Fuzzy matching (typo tolerance)
 # =====================
@@ -43,6 +43,9 @@ except Exception:
 # Global similarity threshold (0..100). Higher = stricter.
 # For very short answers we tighten the threshold automatically.
 FUZZY_THRESHOLD_DEFAULT = 88
+WS_SEND_TIMEOUT = 2.0
+ADMIN_LOG_LIMIT = 2000
+WARNING_PENALTY_POINTS = 500
 
 def _similarity_percent(a: str, b: str) -> int:
     if not a or not b:
@@ -159,6 +162,35 @@ def apply_alias(norm_text: str) -> str:
     return norm_text
 
 
+def is_valid_wordle_guess(guess: str, target: str, question: dict) -> bool:
+    if not guess:
+        return False
+    return True
+
+
+def evaluate_wordle_guess(target: str, guess: str) -> list[str]:
+    """Return per-letter statuses: correct, present, absent."""
+    target_chars = list(target)
+    guess_chars = list(guess)
+    statuses = ["absent"] * len(guess_chars)
+    remaining: dict[str, int] = {}
+
+    for index, char in enumerate(target_chars):
+        if index < len(guess_chars) and guess_chars[index] == char:
+            statuses[index] = "correct"
+        else:
+            remaining[char] = remaining.get(char, 0) + 1
+
+    for index, char in enumerate(guess_chars):
+        if statuses[index] == "correct":
+            continue
+        if remaining.get(char, 0) > 0:
+            statuses[index] = "present"
+            remaining[char] -= 1
+
+    return statuses
+
+
 app = FastAPI()
 
 from fastapi import Request
@@ -171,6 +203,17 @@ async def add_ngrok_header(request: Request, call_next):
     return response
 
 rooms: Dict[str, dict] = {}
+admin_logs = deque(maxlen=ADMIN_LOG_LIMIT)
+admin_clients: Dict[str, dict] = {}
+
+TEAM_PRESETS = [
+    {"name": "Изумрудные", "color": "#22c55e"},
+    {"name": "Бирюзовые", "color": "#14b8a6"},
+    {"name": "Янтарные", "color": "#f59e0b"},
+    {"name": "Рубиновые", "color": "#ef4444"},
+    {"name": "Сапфировые", "color": "#3b82f6"},
+    {"name": "Аметистовые", "color": "#8b5cf6"},
+]
 
 
 def build_room_quiz(quiz_name: str):
@@ -182,6 +225,413 @@ def build_room_quiz(quiz_name: str):
     remaining_questions = quiz[1:]
     random.shuffle(remaining_questions)
     return [first_question, *remaining_questions]
+
+
+def compute_team_leaderboard(room_data: dict):
+    if not room_data.get("team_mode"):
+        return []
+
+    teams = room_data.get("teams") or {}
+    if not teams:
+        return []
+
+    scores = room_data.get("scores") or {}
+    team_totals = []
+
+    for team in teams:
+        members = [member for member in team.get("members", []) if member in scores]
+        total = sum(int(scores.get(member, 0)) for member in members)
+        team_totals.append({
+            "id": team.get("id"),
+            "name": team.get("name") or f"Команда {team.get('id', '?')}",
+            "members": members,
+            "score": total,
+        })
+
+    team_totals.sort(key=lambda item: item["score"], reverse=True)
+    return team_totals
+
+
+def add_player_timeline_event(room_data: dict, username: str, event: str, **details):
+    if not username or username == "HOST":
+        return
+    timelines = room_data.setdefault("player_timelines", {})
+    items = timelines.setdefault(username, [])
+    items.append({
+        "ts": time.time(),
+        "event": event,
+        "question_index": int(room_data.get("question_index", 0) or 0),
+        **details,
+    })
+    if len(items) > 40:
+        del items[:-40]
+
+
+def compute_player_suspicion(metric: dict, flags: dict | None = None, late_joiner: bool = False) -> dict:
+    metric = metric if isinstance(metric, dict) else {}
+    flags = flags if isinstance(flags, dict) else {}
+    offline_seconds = float(metric.get("offline_total_ms", 0) or 0) / 1000
+    if metric.get("offline_started_at"):
+        offline_seconds += max(0.0, time.time() - float(metric.get("offline_started_at")))
+    offline_before_answer_seconds = float(metric.get("offline_before_answer_ms", 0) or 0) / 1000
+    tab_switches = int(metric.get("tab_switches", 0) or 0)
+    warning_count = int(flags.get("warning_count", 0) or 0)
+    penalties_applied = int(flags.get("penalties_applied", 0) or 0)
+
+    score = 0
+    score += min(40, int(round(offline_before_answer_seconds * 2)))
+    score += min(25, tab_switches * 8)
+    score += min(20, warning_count * 4)
+    score += min(10, penalties_applied * 5)
+    if late_joiner:
+        score += 5
+
+    if score >= 40:
+        risk = "high"
+    elif score >= 15:
+        risk = "medium"
+    else:
+        risk = "low"
+
+    return {
+        "score": min(score, 100),
+        "risk": risk,
+        "offline_seconds": round(offline_seconds, 2),
+        "offline_before_answer_seconds": round(offline_before_answer_seconds, 2),
+        "tab_switches": tab_switches,
+    }
+
+
+async def broadcast_team_update(room: str):
+    if room not in rooms:
+        return
+    room_data = rooms[room]
+    payload = {
+        "type": "team_assignment",
+        "enabled": bool(room_data.get("team_mode")),
+        "team_size": int(room_data.get("team_size", 2)),
+        "teams": room_data.get("teams", []),
+        "team_leaderboard": compute_team_leaderboard(room_data),
+    }
+    await broadcast(room, payload)
+
+
+def build_room_snapshot(room: str, room_data: dict) -> dict:
+    players = room_data.get("players", {})
+    answers = room_data.get("answers", {})
+    disconnected = room_data.get("disconnected", {})
+    scores = room_data.get("scores", {})
+    appeals = room_data.get("appeals", [])
+    question_history = room_data.get("question_history", [])
+    current_question_metrics = room_data.get("current_question_metrics", {})
+    player_flags = room_data.get("player_flags", {})
+    late_joiners = room_data.get("late_joiners", {})
+    current_answers = []
+    for username, answer_data in answers.items():
+        if not isinstance(answer_data, dict):
+            continue
+        flags = player_flags.get(username, {}) if isinstance(player_flags.get(username), dict) else {}
+        metric = current_question_metrics.get(username, {}) if isinstance(current_question_metrics.get(username), dict) else {}
+        suspicion = compute_player_suspicion(metric, flags, bool(late_joiners.get(username)))
+        entry = {
+            "username": username,
+            "value": answer_data.get("value"),
+            "selected": answer_data.get("selected"),
+            "selected_list": answer_data.get("selected_list"),
+            "remaining": answer_data.get("remaining"),
+            "finalized": bool(answer_data.get("finalized")),
+            "solved": bool(answer_data.get("solved")),
+            "offline_before_answer_seconds": float(answer_data.get("offline_before_answer_seconds", 0) or 0),
+            "suspicion_score": suspicion["score"],
+            "risk": suspicion["risk"],
+            "manual_suspicious": bool(metric.get("manual_suspicious")),
+            "manual_suspicious_note": metric.get("manual_suspicious_note") or "",
+        }
+        attempts = answer_data.get("attempts")
+        if isinstance(attempts, list):
+            entry["attempts"] = attempts
+        current_answers.append(entry)
+    pending_appeals = [
+        {
+            "id": index,
+            "ts": entry.get("ts"),
+            "username": entry.get("username"),
+            "question_index": entry.get("question_index"),
+            "question_type": entry.get("question_type"),
+            "question": entry.get("question"),
+            "answer": entry.get("answer"),
+            "reason": entry.get("reason"),
+            "points": entry.get("points"),
+            "correct": entry.get("correct"),
+            "resolved": bool(entry.get("resolved")),
+            "resolution": entry.get("resolution"),
+            "delta": entry.get("delta"),
+        }
+        for index, entry in enumerate(appeals)
+        if isinstance(entry, dict) and "question_index" in entry
+    ]
+    player_history = {}
+    player_timelines = room_data.get("player_timelines", {})
+    for username in players.keys():
+        history_items = []
+        for item in question_history[-15:]:
+            users_answers = item.get("users_answers", {}) or {}
+            points_awarded = item.get("points_awarded", {}) or {}
+            if username not in users_answers and username not in points_awarded:
+                continue
+            history_items.append({
+                "question_index": item.get("question_index"),
+                "question": item.get("question"),
+                "question_type": item.get("question_type"),
+                "answer": users_answers.get(username),
+                "points_awarded": points_awarded.get(username, 0),
+                "response_time_ms": ((item.get("response_times_ms") or {}).get(username)),
+                "tab_switches": ((item.get("tab_switches") or {}).get(username, 0)),
+                "offline_before_answer_seconds": round(float(((item.get("offline_before_answer_ms") or {}).get(username, 0) or 0)) / 1000, 2),
+                "offline_seconds": round(float(((item.get("offline_ms") or {}).get(username, 0) or 0)) / 1000, 2),
+            })
+        player_history[username] = history_items
+    current_question_monitor = []
+    now_ts = time.time()
+    for name in players.keys():
+        if name == "HOST":
+            continue
+        metric = current_question_metrics.get(name, {}) if isinstance(current_question_metrics.get(name), dict) else {}
+        answer_data = answers.get(name, {}) if isinstance(answers.get(name), dict) else {}
+        answer_preview = None
+        if answer_data.get("attempts") is not None:
+            answer_preview = answer_data.get("attempts")
+        elif answer_data.get("selected_list") is not None:
+            answer_preview = answer_data.get("selected_list")
+        elif answer_data.get("selected") is not None:
+            answer_preview = answer_data.get("selected")
+        else:
+            answer_preview = answer_data.get("value")
+        flags = player_flags.get(name, {}) if isinstance(player_flags.get(name), dict) else {}
+        offline_total_ms = float(metric.get("offline_total_ms", 0) or 0)
+        offline_started_at = metric.get("offline_started_at")
+        if name in disconnected and offline_started_at:
+            offline_total_ms += max(0.0, now_ts - float(offline_started_at)) * 1000
+        suspicion = compute_player_suspicion(metric, flags, bool(late_joiners.get(name)))
+        current_question_monitor.append({
+            "username": name,
+            "connected": name not in disconnected,
+            "answered": name in answers,
+            "finalized": bool(answer_data.get("finalized")) if isinstance(answer_data, dict) else False,
+            "answer": answer_preview,
+            "response_time_ms": metric.get("response_time_ms"),
+            "answered_at": metric.get("answered_at"),
+            "tab_switches": int(metric.get("tab_switches", 0) or 0),
+            "offline_seconds": round(offline_total_ms / 1000, 2),
+            "offline_before_answer_seconds": suspicion["offline_before_answer_seconds"],
+            "warning_count": int(flags.get("warning_count", 0) or 0),
+            "penalties_applied": int(flags.get("penalties_applied", 0) or 0),
+            "late_joiner": bool(late_joiners.get(name)),
+            "suspicion_score": suspicion["score"],
+            "risk": suspicion["risk"],
+            "manual_suspicious": bool(metric.get("manual_suspicious")),
+            "manual_suspicious_note": metric.get("manual_suspicious_note") or "",
+        })
+    return {
+        "room": room,
+        "quiz": room_data.get("quiz"),
+        "status": room_data.get("status"),
+        "question_index": int(room_data.get("question_index", 0)),
+        "players_count": len(players),
+        "connected_players": len([name for name in players.keys() if name not in disconnected]),
+        "answers_count": len(answers),
+        "paused": bool(room_data.get("paused")),
+        "team_mode": bool(room_data.get("team_mode")),
+        "teams_count": len(room_data.get("teams", [])),
+        "current_view": room_data.get("current_view"),
+        "players": [
+            {
+                "username": name,
+                "score": int(scores.get(name, 0)),
+                "connected": name not in disconnected,
+                "answered": name in answers,
+                "finalized": bool((answers.get(name) or {}).get("finalized")) if isinstance(answers.get(name), dict) else False,
+                "team_id": room_data.get("team_assignments", {}).get(name),
+                "warning_count": int(((player_flags.get(name) or {}).get("warning_count", 0)) if isinstance(player_flags.get(name), dict) else 0),
+                "penalties_applied": int(((player_flags.get(name) or {}).get("penalties_applied", 0)) if isinstance(player_flags.get(name), dict) else 0),
+                "late_joiner": bool(late_joiners.get(name)),
+                "suspicion_score": compute_player_suspicion(
+                    current_question_metrics.get(name, {}) if isinstance(current_question_metrics.get(name), dict) else {},
+                    player_flags.get(name, {}) if isinstance(player_flags.get(name), dict) else {},
+                    bool(late_joiners.get(name)),
+                )["score"],
+                "risk": compute_player_suspicion(
+                    current_question_metrics.get(name, {}) if isinstance(current_question_metrics.get(name), dict) else {},
+                    player_flags.get(name, {}) if isinstance(player_flags.get(name), dict) else {},
+                    bool(late_joiners.get(name)),
+                )["risk"],
+                "manual_suspicious": bool(((current_question_metrics.get(name) or {}).get("manual_suspicious")) if isinstance(current_question_metrics.get(name), dict) else False),
+                "manual_suspicious_note": (((current_question_metrics.get(name) or {}).get("manual_suspicious_note")) if isinstance(current_question_metrics.get(name), dict) else "") or "",
+            }
+            for name in players.keys()
+        ],
+        "teams": room_data.get("teams", []),
+        "pending_appeals": pending_appeals,
+        "current_answers": current_answers,
+        "current_question_monitor": current_question_monitor,
+        "question_history": [
+            {
+                "question_index": item.get("question_index"),
+                "question": item.get("question"),
+                "question_type": item.get("question_type"),
+                "answered_count": item.get("answered_count"),
+                "points": item.get("points"),
+                "offline_before_answer_ms": item.get("offline_before_answer_ms", {}),
+                "response_times_ms": item.get("response_times_ms", {}),
+                "tab_switches": item.get("tab_switches", {}),
+                "offline_ms": item.get("offline_ms", {}),
+            }
+            for item in question_history[-10:]
+        ],
+        "player_history": player_history,
+        "player_timelines": {
+            username: list(player_timelines.get(username, []))[-20:]
+            for username in players.keys()
+            if username != "HOST"
+        },
+        "latest_logs": [
+            entry for entry in list(admin_logs)[-50:]
+            if entry.get("room") in {None, room}
+        ],
+    }
+
+
+def build_server_snapshot() -> dict:
+    return {
+        "rooms": [build_room_snapshot(room, room_data) for room, room_data in rooms.items()],
+        "logs": list(admin_logs),
+    }
+
+
+async def safe_send_admin(client_id: str, message: dict) -> bool:
+    client = admin_clients.get(client_id)
+    if not client:
+        return False
+    websocket = client.get("ws")
+    lock = client.get("lock")
+    if websocket is None or lock is None:
+        return False
+    try:
+        async with lock:
+            await asyncio.wait_for(websocket.send_json(message), timeout=WS_SEND_TIMEOUT)
+        return True
+    except Exception:
+        admin_clients.pop(client_id, None)
+        return False
+
+
+async def broadcast_admin(message: dict):
+    if not admin_clients:
+        return
+    await asyncio.gather(*[
+        safe_send_admin(client_id, message)
+        for client_id in list(admin_clients.keys())
+    ], return_exceptions=True)
+
+
+def log_event(event_type: str, room: str | None = None, **details):
+    entry = {
+        "ts": round(time.time(), 3),
+        "event": event_type,
+        "room": room,
+        "details": details,
+    }
+    admin_logs.append(entry)
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    loop.create_task(broadcast_admin({"type": "admin_log", "entry": entry}))
+    if room and room in rooms:
+        snapshot = build_room_snapshot(room, rooms[room])
+        loop.create_task(broadcast_admin({"type": "room_snapshot", "room": room, "snapshot": snapshot}))
+
+
+def stringify_export_value(value) -> str:
+    if isinstance(value, list):
+        parts = []
+        for item in value:
+            if isinstance(item, dict) and item.get("guess") is not None:
+                parts.append(str(item.get("guess")))
+            else:
+                parts.append(str(item))
+        return " | ".join(parts)
+    if isinstance(value, dict):
+        return json.dumps(value, ensure_ascii=False)
+    if value is None:
+        return ""
+    return str(value)
+
+
+def remove_player_from_teams(room_data: dict, username: str):
+    if not room_data.get("team_mode"):
+        return
+    teams = []
+    for team in room_data.get("teams", []):
+        members = [member for member in team.get("members", []) if member != username]
+        if not members:
+            continue
+        teams.append({
+            **team,
+            "members": members,
+        })
+    room_data["teams"] = teams
+    room_data.get("team_assignments", {}).pop(username, None)
+
+
+def apply_warning_count(room: str, room_data: dict, username: str, new_count_raw) -> dict:
+    try:
+        new_count = max(0, int(new_count_raw))
+    except Exception:
+        return {"ok": False, "error": "warning count must be an integer"}
+
+    if username not in room_data.get("scores", {}):
+        return {"ok": False, "error": "Player not found"}
+
+    flags = room_data.setdefault("player_flags", {})
+    player_flags = flags.setdefault(username, {"warning_count": 0, "penalties_applied": 0})
+    old_count = int(player_flags.get("warning_count", 0) or 0)
+    old_over = max(0, old_count - 5)
+    new_over = max(0, new_count - 5)
+    extra_penalties = max(0, new_over - old_over)
+    penalty_points = extra_penalties * WARNING_PENALTY_POINTS
+
+    player_flags["warning_count"] = new_count
+    if extra_penalties:
+        player_flags["penalties_applied"] = int(player_flags.get("penalties_applied", 0) or 0) + extra_penalties
+        room_data["scores"][username] = int(room_data["scores"].get(username, 0)) - penalty_points
+
+    packet = {
+        "type": "anti_cheat_warning",
+        "warning_count": new_count,
+        "visible_count": min(new_count, 5),
+        "penalty_points": penalty_points,
+    }
+    player_ws = room_data.get("players", {}).get(username)
+    if player_ws is not None:
+        asyncio.create_task(safe_send_json(room_data, player_ws, packet, f"player:{username}"))
+
+    return {
+        "ok": True,
+        "username": username,
+        "warning_count": new_count,
+        "penalty_points": penalty_points,
+    }
+
+
+def build_team_meta(team_index: int):
+    preset = TEAM_PRESETS[team_index % len(TEAM_PRESETS)]
+    cycle = (team_index // len(TEAM_PRESETS)) + 1
+    name = preset["name"] if cycle == 1 else f"{preset['name']} {cycle}"
+    return {
+        "name": name,
+        "color": preset["color"],
+    }
 
 QUIZZES = {
     "Механики и экономика": [
@@ -1027,19 +1477,9 @@ QUIZZES = {
         "time": 25,
         "points": 800
         },
-        
-
 
     ],
 
-
-
-
-
-    
-
-
-    
     "Угадай персонажа по звуку": [
         {
             "type": "text",
@@ -1929,19 +2369,368 @@ QUIZZES = {
   "correct": ["Масакр"],
   "time": 35,
   "points": 1600
+},
+{
+  "type": "text",
+  "question": "Угадай персонажа по описанию:",
+  "prompt": "С виду я могу казаться спокойным, но это обман. Мне достаточно пары удачных моментов, чтобы бой вышел из-под твоего контроля: дальше ты уже не атакуешь, а просто пытаешься пережить мою следующую вспышку.",
+  "correct": ["Хавок", "Havok"],
+  "time": 35,
+  "points": 1600
+},
+{
+  "type": "text",
+  "question": "Угадай персонажа по описанию:",
+  "prompt": "Я один из тех, кто превращает терпение в оружие. Чем дольше тянется бой, тем сильнее я раскрываюсь, и в какой-то момент соперник осознаёт, что всё это время сам копал себе яму.",
+  "correct": ["Корвус Глейв", "Корвус", "Corvus Glaive", "Corvus"],
+  "time": 35,
+  "points": 1600
+},
+{
+  "type": "text",
+  "question": "Угадай персонажа по описанию:",
+  "prompt": "Мне не нужно честно перебивать тебя по урону — я просто превращаю твои привычки в слабость. Пока ты играешь в свой обычный бой, я шаг за шагом лишаю тебя шансов делать это дальше.",
+  "correct": ["Паук 2099", "Человек-Паук 2099", "Человек Паук 2099", "Spider-Man 2099", "Spider Man 2099"],
+  "time": 35,
+  "points": 1600
+},
+{
+  "type": "text",
+  "question": "Угадай персонажа по описанию:",
+  "prompt": "Я не давлю грубой силой с первой секунды — я методично собираю преимущества, и в какой-то момент бой ломается. С этого момента ты уже не дерёшься, а просто стоишь в очереди на поражение.",
+  "correct": ["Китти Прайд", "Китти", "Kitty Pryde", "Kitty"],
+  "time": 35,
+  "points": 1600
 }
+],
+
+
+
+####
+
+"Угадай слово связанное с игрой": [
+{
+  "question": "Назови игровой термин!",
+  "type": "wordle",
+  "prompt": "Механика.",
+  "correct": "комбо",
+  "time": 900,
+  "points": 1000,
+  "max_attempts": 6
+},
+{
+  "question": "Угадай чемпиона.",
+  "type": "wordle",
+  "prompt": "Персонаж.",
+  "correct": "Мангог",
+  "time": 900,
+  "points": 1000,
+  "max_attempts": 6
+},
+{
+  "question": "Назови игровой ресурс",
+  "type": "wordle",
+  "prompt": "Ресурс.",
+
+  "correct": "Единица",
+  "time": 900,
+  "points": 1000,
+  "max_attempts": 7
+},
+{
+  "question": "Назови игровой ресурс",
+  "type": "wordle",
+  "prompt": "Ресурс.",
+
+  "correct": "Сплав",
+  "time": 900,
+  "points": 1000,
+  "max_attempts": 6
+},
+{
+  "question": "Назови игровой контент!",
+  "type": "wordle",
+  "prompt": "Контент.",
+
+  "correct": "Горн",
+  "time": 900,
+  "points": 1000,
+  "max_attempts": 6
+},
+{
+  "question": "Угадай персонажа",
+  "type": "wordle",
+  "prompt": "Персонаж.",
+  "correct": "Веном",
+  "time": 900,
+  "points": 1000,
+  "max_attempts": 6
+},
+{
+  "question": "Угадай персонажа",
+  "type": "wordle",
+  "prompt": "Персонаж.",
+
+  "correct": "Поглотитель",
+  "time": 900,
+  "points": 1300,
+  "max_attempts": 8
+},
+{
+  "question": "Угадай персонажа",
+  "type": "wordle",
+  "prompt": "Персонаж.",
+  "correct": "Ящер",
+  "time": 900,
+  "points": 1000,
+  "max_attempts": 6
+},
+{
+  "question": "Угадай контент связанный с игрой",
+  "type": "wordle",
+  "prompt": "Контент.",
+  "correct": "Вариант",
+  "time": 900,
+  "points": 1100,
+  "max_attempts": 7
+},
+{
+  "question": "Угадай слово связанное с игрой",
+  "type": "wordle",
+  "prompt": "Ресурс.",
+
+  "correct": "Жетоны",
+  "time": 900,
+  "points": 1000,
+  "max_attempts": 6
+},
+{
+  "question": "Угадай персонажа",
+  "type": "wordle",
+  "prompt": "Персонаж.",
+
+  "correct": "Фотон",
+  "time": 900,
+  "points": 1000,
+  "max_attempts": 6
+},
+{
+  "question": "Угадай контент связанный с игрой",
+  "type": "wordle",
+  "prompt": "Контент.",
+
+  "correct": "Сияние",
+  "time": 900,
+  "points": 1000,
+  "max_attempts": 6
+},
+{
+  "question": "Угадай слово связанное с игрой",
+  "type": "wordle",
+  "prompt": "Слово.",
+
+  "correct": "Доблестный",
+  "time": 900,
+  "points": 1200,
+  "max_attempts": 8
+},
+{
+  "question": "Угадай слово связанное с игрой",
+  "type": "wordle",
+  "prompt": "Слово.",
+
+  "correct": "Титул",
+  "time": 900,
+  "points": 1000,
+  "max_attempts": 6
+},
+{
+  "question": "Угадай персонажа",
+  "type": "wordle",
+  "prompt": "Персонаж.",
+
+  "correct": "Нова",
+  "time": 900,
+  "points": 1000,
+  "max_attempts": 6
+},
+{
+  "question": "Угадай персонажа",
+  "type": "wordle",
+  "prompt": "Персонаж.",
+
+  "correct": "Призрак",
+  "time": 900,
+  "points": 1000,
+  "max_attempts": 7
+},
+{
+  "question": "Угадай слово связанное с игрой",
+  "type": "wordle",
+  "prompt": "Ресурс.",
+
+  "correct": "Зелье",
+  "time": 900,
+  "points": 1000,
+  "max_attempts": 6
+},
+{
+  "question": "Угадай слово связанное с игрой",
+  "type": "wordle",
+  "prompt": "Слово.",
+
+  "correct": "Ярость",
+  "time": 900,
+  "points": 1000,
+  "max_attempts": 6
+},
+{
+  "question": "Угадай слово связанное с игрой",
+  "type": "wordle",
+  "prompt": "Слово.",
+
+  "correct": "Аватар",
+  "time": 900,
+  "points": 1000,
+  "max_attempts": 6
+},
+{
+  "question": "Угадай слово связанное с игрой",
+  "type": "wordle",
+  "prompt": "Ресурс.",
+
+  "correct": "Катализатор",
+  "time": 900,
+  "points": 1400,
+  "max_attempts": 8
+},
+{
+  "question": "Угадай слово связанное с игрой",
+  "type": "wordle",
+  "prompt": "Слово.",
+
+  "correct": "Глава",
+  "time": 900,
+  "points": 1000,
+  "max_attempts": 6
+},
+{
+  "question": "Угадай слово связанное с игрой",
+  "type": "wordle",
+  "prompt": "Слово.",
+
+  "correct": "Нетленный",
+  "time": 900,
+  "points": 1200,
+  "max_attempts": 8
+},
+
+{
+  "question": "Угадай слово связанное с игрой",
+  "type": "wordle",
+  "prompt": "Слово.",
+
+  "correct": "Отчаяние",
+  "time": 900,
+  "points": 1200,
+  "max_attempts": 8
+},
+{
+  "question": "Угадай слово связанное с игрой",
+  "type": "wordle",
+  "prompt": "Слово.",
+
+  "correct": "Отдача",
+  "time": 900,
+  "points": 1000,
+  "max_attempts": 6
+},
+{
+  "question": "Угадай слово связанное с игрой",
+  "type": "wordle",
+  "prompt": "Слово.",
+
+  "correct": "Разрыв",
+  "time": 900,
+  "points": 1000,
+  "max_attempts": 6
+},
+{
+  "question": "Угадай слово связанное с игрой",
+  "type": "wordle",
+  "prompt": "Слово.",
+
+  "correct": "Акт",
+  "time": 900,
+  "points": 1000,
+  "max_attempts": 6
+},
+
+{
+  "question": "Угадай слово связанное с игрой",
+  "type": "wordle",
+  "prompt": "Слово.",
+
+  "correct": "Печать",
+  "time": 900,
+  "points": 1000,
+  "max_attempts": 6
+},
+{
+  "question": "Угадай персонажа",
+  "type": "wordle",
+  "prompt": "Персонаж.",
+
+  "correct": "Бахамет",
+  "time": 900,
+  "points": 1000,
+  "max_attempts": 7
+},
+
+{
+  "question": "Угадай персонажа",
+  "type": "wordle",
+  "prompt": "Персонаж.",
+
+  "correct": "Вокс",
+  "time": 900,
+  "points": 1000,
+  "max_attempts": 6
+},
+{
+  "question": "Угадай персонажа",
+  "type": "wordle",
+  "prompt": "Персонаж.",
+
+  "correct": "Космос",
+  "time": 900,
+  "points": 1000,
+  "max_attempts": 6
+},
+{
+  "question": "Угадай персонажа",
+  "type": "wordle",
+  "prompt": "Персонаж.",
+
+  "correct": "Блок",
+  "time": 900,
+  "points": 1000,
+  "max_attempts": 6
+},
+
+
+
+
 
 
 ]
-        
-
-    
 }
 
 # Supported question types:
 # mcq        - multiple choice (default)
 # numeric    - numeric input
 # text       - short text answer
+# wordle     - word guessing with multiple attempts and colored letter feedback
 # poll       - no correct answer (voting)
 # fastest    - first correct wins bonus
 
@@ -1952,35 +2741,77 @@ def generate_pin():
             return pin
 
 
+def get_socket_lock(room_data: dict, connection_key: str) -> asyncio.Lock:
+    socket_locks = room_data.setdefault("socket_locks", {})
+    lock = socket_locks.get(connection_key)
+    if lock is None:
+        lock = asyncio.Lock()
+        socket_locks[connection_key] = lock
+    return lock
+
+
+async def safe_send_json(room_data: dict, websocket: WebSocket | None, message: dict, connection_key: str) -> bool:
+    if websocket is None:
+        return False
+    lock = get_socket_lock(room_data, connection_key)
+    try:
+        async with lock:
+            await asyncio.wait_for(websocket.send_json(message), timeout=WS_SEND_TIMEOUT)
+        return True
+    except Exception:
+        return False
+
+
+async def broadcast(room: str, message: dict):
+    if room not in rooms:
+        return
+    room_data = rooms[room]
+    send_tasks = []
+
+    host_ws = room_data.get("host")
+    if host_ws:
+        send_tasks.append(safe_send_json(room_data, host_ws, message, "host"))
+
+    for username, ws in list(room_data.get("players", {}).items()):
+        send_tasks.append(safe_send_json(room_data, ws, message, f"player:{username}"))
+
+    if send_tasks:
+        await asyncio.gather(*send_tasks, return_exceptions=True)
+
+
 async def close_room_and_notify(room: str, message: str = "Тест завершен"):
     if room not in rooms:
         return False
 
     room_data = rooms[room]
+    log_event("room_closing", room, message=message, players=len(room_data.get("players", {})))
 
-    for ws in list(room_data.get("players", {}).values()):
-        try:
-            await ws.send_json({
-                "type": "test_aborted",
-                "message": message
-            })
-        except Exception:
-            pass
-        try:
-            await ws.close()
-        except Exception:
-            pass
+    abort_payload = {
+        "type": "test_aborted",
+        "message": message
+    }
+    player_items = list(room_data.get("players", {}).items())
+    await asyncio.gather(*[
+        safe_send_json(room_data, ws, abort_payload, f"player:{username}")
+        for username, ws in player_items
+    ], return_exceptions=True)
+    await asyncio.gather(*[
+        ws.close()
+        for _, ws in player_items
+    ], return_exceptions=True)
 
     if room_data.get("host"):
-        try:
-            await room_data["host"].send_json({
-                "type": "return_to_lobby",
-                "message": "Тест завершён. Игроки удалены."
-            })
-        except Exception:
-            pass
+        await safe_send_json(room_data, room_data["host"], {
+            "type": "return_to_lobby",
+            "message": "Тест завершён. Игроки удалены."
+        }, "host")
 
     del rooms[room]
+    try:
+        asyncio.get_running_loop().create_task(broadcast_admin({"type": "room_removed", "room": room}))
+    except RuntimeError:
+        pass
+    log_event("room_closed", room, message=message)
     return True
 
 @app.get("/")
@@ -1999,41 +2830,332 @@ async def player_page():
 async def image_editor_page():
     return FileResponse("static/image_editor.html")
 
+@app.get("/admin.html")
+async def admin_page():
+    return FileResponse("static/admin.html")
+
+
+async def execute_admin_action(room: str, action: str, payload: dict | None = None) -> dict:
+    payload = payload or {}
+    if room not in rooms:
+        return {"ok": False, "error": "Room not found"}
+
+    room_data = rooms[room]
+
+    if action == "kick_player":
+        target = str(payload.get("username") or "").strip()
+        if not target:
+            return {"ok": False, "error": "username is required"}
+        player_ws = room_data.get("players", {}).get(target)
+        if player_ws is None:
+            return {"ok": False, "error": "Player not found"}
+        await safe_send_json(room_data, player_ws, {"type": "kicked"}, f"player:{target}")
+        try:
+            await player_ws.close()
+        except Exception:
+            pass
+        room_data["players"].pop(target, None)
+        room_data["scores"].pop(target, None)
+        room_data["answers"].pop(target, None)
+        room_data.get("disconnected", {}).pop(target, None)
+        room_data.get("current_question_metrics", {}).pop(target, None)
+        room_data.get("player_flags", {}).pop(target, None)
+        room_data.get("late_joiners", {}).pop(target, None)
+        remove_player_from_teams(room_data, target)
+        await update_players(room)
+        await broadcast_team_update(room)
+        log_event("admin_kick_player", room, username=target)
+        return {"ok": True, "username": target}
+
+    if action == "send_message":
+        target = str(payload.get("username") or "").strip()
+        message_text = str(payload.get("message") or payload.get("text") or "").strip()
+        if not message_text:
+            return {"ok": False, "error": "message is required"}
+        packet = {
+            "type": "admin_message",
+            "message": message_text,
+            "target": target or "all",
+        }
+        if target:
+            player_ws = room_data.get("players", {}).get(target)
+            if player_ws is None:
+                return {"ok": False, "error": "Player not found"}
+            ok = await safe_send_json(room_data, player_ws, packet, f"player:{target}")
+            log_event("admin_message_sent", room, username=target, ok=ok, message=message_text)
+            return {"ok": ok, "target": target}
+        await broadcast(room, packet)
+        log_event("admin_message_sent", room, username="all", ok=True, message=message_text)
+        return {"ok": True, "target": "all"}
+
+    if action == "set_manual_suspicious":
+        target = str(payload.get("username") or "").strip()
+        if not target:
+            return {"ok": False, "error": "username is required"}
+        metrics = room_data.setdefault("current_question_metrics", {}).setdefault(target, {
+            "tab_switches": 0,
+            "response_time_ms": None,
+            "answered_at": None,
+            "offline_total_ms": 0,
+            "offline_started_at": None,
+            "offline_before_answer_ms": 0,
+        })
+        metrics["manual_suspicious"] = bool(payload.get("value", True))
+        metrics["manual_suspicious_note"] = str(payload.get("note") or "").strip()
+        log_event(
+            "admin_manual_suspicious",
+            room,
+            username=target,
+            value=bool(payload.get("value", True)),
+            note=metrics["manual_suspicious_note"],
+            question_index=room_data.get("question_index"),
+        )
+        return {"ok": True, "username": target, "manual_suspicious": metrics["manual_suspicious"], "note": metrics["manual_suspicious_note"]}
+
+    if action == "adjust_score":
+        target = str(payload.get("username") or "").strip()
+        reason = str(payload.get("reason") or "").strip()
+        try:
+            delta = int(payload.get("delta"))
+        except Exception:
+            return {"ok": False, "error": "delta must be an integer"}
+        if target not in room_data.get("scores", {}):
+            return {"ok": False, "error": "Player not found"}
+        room_data["scores"][target] += delta
+        room_data.setdefault("appeals", []).append({
+            "ts": time.time(),
+            "username": target,
+            "delta": delta,
+            "reason": reason or "Admin score adjustment",
+            "resolved": True,
+            "resolution": "manual_adjustment",
+        })
+        leaderboard = sorted(room_data["scores"].items(), key=lambda x: x[1], reverse=True)
+        await broadcast(room, {
+            "type": "appeal_awarded",
+            "username": target,
+            "delta": delta,
+            "reason": reason or "Admin score adjustment",
+            "leaderboard": leaderboard,
+            "team_leaderboard": compute_team_leaderboard(room_data),
+            "total_scores": room_data["scores"],
+        })
+        log_event("admin_adjust_score", room, username=target, delta=delta, reason=reason)
+        return {"ok": True, "username": target, "delta": delta}
+
+    if action == "set_warning_count":
+        target = str(payload.get("username") or "").strip()
+        if not target:
+            return {"ok": False, "error": "username is required"}
+        result = apply_warning_count(room, room_data, target, payload.get("warning_count", 0))
+        if result.get("ok"):
+            leaderboard = sorted(room_data["scores"].items(), key=lambda x: x[1], reverse=True)
+            await broadcast(room, {
+                "type": "appeal_awarded",
+                "username": target,
+                "delta": -int(result.get("penalty_points", 0) or 0),
+                "reason": "Anti-cheat warning penalty" if int(result.get("penalty_points", 0) or 0) > 0 else "Anti-cheat warning updated",
+                "leaderboard": leaderboard,
+                "team_leaderboard": compute_team_leaderboard(room_data),
+                "total_scores": room_data["scores"],
+            })
+            log_event(
+                "admin_warning_updated",
+                room,
+                username=target,
+                warning_count=result.get("warning_count"),
+                penalty_points=result.get("penalty_points", 0),
+            )
+        return result
+
+    if action == "resolve_appeal":
+        try:
+            appeal_id = int(payload.get("appeal_id"))
+        except Exception:
+            return {"ok": False, "error": "appeal_id must be an integer"}
+        resolution = str(payload.get("resolution") or "rejected").strip() or "rejected"
+        reason = str(payload.get("reason") or "").strip()
+        try:
+            delta = int(payload.get("delta", 0))
+        except Exception:
+            return {"ok": False, "error": "delta must be an integer"}
+        appeals = room_data.setdefault("appeals", [])
+        if appeal_id < 0 or appeal_id >= len(appeals):
+            return {"ok": False, "error": "Appeal not found"}
+        appeal = appeals[appeal_id]
+        if not isinstance(appeal, dict) or "question_index" not in appeal:
+            return {"ok": False, "error": "Appeal item is not actionable"}
+        if appeal.get("resolved"):
+            return {"ok": False, "error": "Appeal already resolved"}
+
+        appeal["resolved"] = True
+        appeal["resolution"] = resolution
+        appeal["resolved_ts"] = time.time()
+        if reason:
+            appeal["admin_reason"] = reason
+
+        result = {"ok": True, "appeal_id": appeal_id, "resolution": resolution}
+        if resolution == "approved" and delta != 0:
+            target = appeal.get("username")
+            if target in room_data.get("scores", {}):
+                room_data["scores"][target] += delta
+                appeal["delta"] = delta
+                leaderboard = sorted(room_data["scores"].items(), key=lambda x: x[1], reverse=True)
+                await broadcast(room, {
+                    "type": "appeal_awarded",
+                    "username": target,
+                    "delta": delta,
+                    "reason": reason or appeal.get("reason") or "Admin appeal resolution",
+                    "leaderboard": leaderboard,
+                    "team_leaderboard": compute_team_leaderboard(room_data),
+                    "total_scores": room_data["scores"],
+                })
+                result["delta"] = delta
+        await broadcast(room, {
+            "type": "appeal_resolved",
+            "appeal_id": appeal_id,
+            "username": appeal.get("username"),
+            "question_index": appeal.get("question_index"),
+            "resolution": resolution,
+            "delta": int(appeal.get("delta", 0) or 0),
+            "reason": reason or appeal.get("admin_reason") or "",
+        })
+        log_event("admin_resolve_appeal", room, appeal_id=appeal_id, resolution=resolution, delta=delta, reason=reason)
+        return result
+
+    if action == "start_game":
+        if room_data.get("status") != "waiting":
+            return {"ok": False, "error": "Game is not in waiting state"}
+        if room_data.get("team_mode") and not room_data.get("teams"):
+            return {"ok": False, "error": "Teams must be shuffled first"}
+        room_data["status"] = "active"
+        room_data["paused"] = False
+        room_data["remaining_time"] = None
+        room_data["current_payload"] = None
+        room_data["current_view"] = "question"
+        await send_question(room)
+        log_event("admin_start_game", room, quiz=room_data.get("quiz"))
+        return {"ok": True}
+
+    if action == "pause_toggle":
+        if room_data.get("status") != "active":
+            return {"ok": False, "error": "Game is not active"}
+        if not room_data.get("paused"):
+            elapsed = time.time() - room_data["question_start"]
+            remaining = max(0, room_data["question_duration"] - elapsed)
+            room_data["remaining_time"] = remaining
+            room_data["paused"] = True
+            await broadcast(room, {"type": "paused", "time": remaining})
+            log_event("admin_pause", room, remaining=round(remaining, 3))
+            return {"ok": True, "paused": True, "remaining": remaining}
+
+        room_data["paused"] = False
+        room_data["question_start"] = time.time()
+        room_data["question_duration"] = room_data["remaining_time"]
+        await broadcast(room, {"type": "resume", "time": room_data["remaining_time"]})
+        log_event("admin_resume", room, remaining=room_data["remaining_time"])
+        return {"ok": True, "paused": False, "remaining": room_data["remaining_time"]}
+
+    if action == "force_reveal":
+        if room_data.get("status") != "active":
+            return {"ok": False, "error": "Game is not active"}
+        await send_reveal(room, room_data["question_index"])
+        log_event("admin_force_reveal", room, question_index=room_data["question_index"])
+        return {"ok": True}
+
+    if action == "next":
+        if room_data.get("status") != "active":
+            return {"ok": False, "error": "Game is not active"}
+        room_data["paused"] = False
+        room_data["remaining_time"] = None
+        room_data["question_index"] += 1
+        room_data["current_payload"] = None
+        room_data["current_view"] = "question"
+        await send_question(room)
+        log_event("admin_next_question", room, question_index=room_data["question_index"])
+        return {"ok": True, "question_index": room_data["question_index"]}
+
+    if action == "close_room":
+        closed = await close_room_and_notify(room, "Комната закрыта из admin")
+        log_event("admin_close_room", room, closed=closed)
+        return {"ok": bool(closed)}
+
+    if action == "end_game":
+        player_items = list(room_data.get("players", {}).items())
+        await asyncio.gather(*[
+            safe_send_json(room_data, ws_player, {
+                "type": "test_aborted",
+                "message": "Тест завершен из admin"
+            }, f"player:{username_player}")
+            for username_player, ws_player in player_items
+        ], return_exceptions=True)
+        await asyncio.gather(*[
+            ws_player.close()
+            for _, ws_player in player_items
+        ], return_exceptions=True)
+        room_data["players"] = {}
+        room_data["scores"] = {}
+        room_data["answers"] = {}
+        room_data["question_index"] = 0
+        room_data["status"] = "waiting"
+        room_data["team_mode"] = False
+        room_data["team_size"] = 2
+        room_data["teams"] = []
+        room_data["team_assignments"] = {}
+        room_data["paused"] = False
+        room_data["remaining_time"] = None
+        room_data["revealed"] = False
+        room_data["appeals"] = []
+        room_data["appeal_dedup"] = {}
+        room_data["question_history"] = []
+        room_data["current_question_metrics"] = {}
+        room_data["player_flags"] = {}
+        room_data["current_payload"] = None
+        room_data["current_view"] = "waiting"
+        if room_data.get("host"):
+            await safe_send_json(room_data, room_data["host"], {
+                "type": "return_to_lobby",
+                "message": "Тест завершён из admin. Игроки удалены."
+            }, "host")
+        log_event("admin_end_game", room)
+        return {"ok": True}
+
+    if action == "snapshot":
+        return {"ok": True, "snapshot": build_room_snapshot(room, room_data)}
+
+    return {"ok": False, "error": f"Unknown action: {action}"}
+
 @app.get("/create-room/{quiz}")
 async def create_room(quiz: str, request: Request):
     # ===== РАСФОРМИРОВАНИЕ СУЩЕСТВУЮЩИХ КОМНАТ =====
     for existing_pin in list(rooms.keys()):
         room_data = rooms[existing_pin]
+        player_items = list(room_data.get("players", {}).items())
 
         # уведомляем всех игроков
-        for ws in room_data.get("players", {}).values():
-            try:
-                await ws.send_json({
-                    "type": "room_closed",
-                    "message": "Комната расформирована ведущим"
-                })
-            except:
-                pass
+        await asyncio.gather(*[
+            safe_send_json(room_data, ws, {
+                "type": "room_closed",
+                "message": "Комната расформирована ведущим"
+            }, f"player:{username}")
+            for username, ws in player_items
+        ], return_exceptions=True)
 
         # уведомляем хоста (если есть)
         if room_data.get("host"):
-            try:
-                await room_data["host"].send_json({
-                    "type": "room_closed",
-                    "message": "Комната расформирована"
-                })
-            except:
-                pass
+            await safe_send_json(room_data, room_data["host"], {
+                "type": "room_closed",
+                "message": "Комната расформирована"
+            }, "host")
 
         # даём фронту время обработать сообщение
         await asyncio.sleep(0.15)
 
         # закрываем все соединения игроков
-        for ws in list(room_data.get("players", {}).values()):
-            try:
-                await ws.close()
-            except:
-                pass
+        await asyncio.gather(*[
+            ws.close()
+            for _, ws in player_items
+        ], return_exceptions=True)
 
         # закрываем соединение хоста
         if room_data.get("host"):
@@ -2044,6 +3166,7 @@ async def create_room(quiz: str, request: Request):
 
         # удаляем комнату
         del rooms[existing_pin]
+        await broadcast_admin({"type": "room_removed", "room": existing_pin})
 
     # ===== СОЗДАНИЕ НОВОЙ КОМНАТЫ =====
     pin = generate_pin()
@@ -2056,6 +3179,10 @@ async def create_room(quiz: str, request: Request):
         "answers": {},
         "quiz": quiz,
         "quiz_questions": build_room_quiz(quiz),
+        "team_mode": False,
+        "team_size": 2,
+        "teams": [],
+        "team_assignments": {},
         "question_index": 0,
         "status": "waiting",
         "question_start": None,
@@ -2067,9 +3194,14 @@ async def create_room(quiz: str, request: Request):
         "disconnected": {},  # map username -> last_seen_ts
         "disconnect_grace": 180,  # seconds
         "question_history": [],
+        "current_question_metrics": {},
+        "player_flags": {},
+        "late_joiners": {},
         "current_payload": None,
         "current_view": "waiting",
     }
+
+    log_event("room_created", pin, quiz=quiz)
 
     return {"pin": pin}
 
@@ -2094,10 +3226,12 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
     if room not in rooms:
         return
     room_data = rooms[room]
+    log_event("socket_connected", room, role=role, username=username)
     
 
     if role == "host":
         room_data["host"] = websocket
+        log_event("host_attached", room, username=username)
         await update_players(room)
     else:
         # === Player connect / reconnect handling ===
@@ -2109,15 +3243,6 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
         is_known_player = existing_score is not None
         was_disconnected = username in room_data.get("disconnected", {})
 
-        # If the game already started and this username is not known -> block join
-        if room_data.get("status") != "waiting" and not is_known_player:
-            await websocket.send_json({
-                "type": "error",
-                "message": "Game already started"
-            })
-            await websocket.close()
-            return
-
         # If there is an existing socket for this username, replace it (reconnect)
         if existing_ws is not None:
             try:
@@ -2126,17 +3251,28 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
                 pass
 
         room_data.setdefault("players", {})[username] = websocket
+        log_event("player_attached", room, username=username, known_player=is_known_player, status=room_data.get("status"))
 
         # Preserve score on reconnect, otherwise initialize
         if existing_score is None:
             room_data.setdefault("scores", {})[username] = 0
+            room_data.setdefault("late_joiners", {})[username] = room_data.get("status") != "waiting"
+        elif username not in room_data.setdefault("late_joiners", {}):
+            room_data["late_joiners"][username] = False
 
         # Clear disconnected marker on successful reconnect
         room_data.setdefault("disconnected", {}).pop(username, None)
 
         if room_data.get("status") == "waiting":
             await websocket.send_json({"type": "waiting"})
-        elif is_known_player:
+            await websocket.send_json({
+                "type": "team_assignment",
+                "enabled": bool(room_data.get("team_mode")),
+                "team_size": int(room_data.get("team_size", 2)),
+                "teams": room_data.get("teams", []),
+                "team_leaderboard": compute_team_leaderboard(room_data),
+            })
+        else:
             current_payload = room_data.get("current_payload")
             if isinstance(current_payload, dict):
                 payload_to_send = dict(current_payload)
@@ -2156,9 +3292,21 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
                         "type": "paused",
                         "time": room_data.get("remaining_time", 0)
                     })
+                await websocket.send_json({
+                    "type": "team_assignment",
+                    "enabled": bool(room_data.get("team_mode")),
+                    "team_size": int(room_data.get("team_size", 2)),
+                    "teams": room_data.get("teams", []),
+                    "team_leaderboard": compute_team_leaderboard(room_data),
+                })
 
         if was_disconnected:
-            await notify_host_player_connection(room, username, "reconnected")
+            metrics = room_data.setdefault("current_question_metrics", {}).get(username)
+            if isinstance(metrics, dict) and metrics.get("offline_started_at"):
+                metrics["offline_total_ms"] = float(metrics.get("offline_total_ms", 0) or 0) + max(0.0, time.time() - float(metrics["offline_started_at"])) * 1000
+                metrics["offline_started_at"] = None
+            await notify_host_player_connection(room, username, "online")
+            log_event("player_reconnected", room, username=username)
         await update_players(room)
 
     try:
@@ -2175,7 +3323,35 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
                         pass
                 # Mark as alive
                 if role == "player":
+                    metrics = room_data.setdefault("current_question_metrics", {}).get(username)
+                    if isinstance(metrics, dict) and metrics.get("offline_started_at"):
+                        metrics["offline_total_ms"] = float(metrics.get("offline_total_ms", 0) or 0) + max(0.0, time.time() - float(metrics["offline_started_at"])) * 1000
+                        metrics["offline_started_at"] = None
+                        add_player_timeline_event(room_data, username, "back_online")
                     room_data.setdefault("disconnected", {}).pop(username, None)
+                continue
+
+            if role == "player" and msg_type == "tab_hidden":
+                metrics = room_data.setdefault("current_question_metrics", {}).setdefault(username, {
+                    "tab_switches": 0,
+                    "response_time_ms": None,
+                    "answered_at": None,
+                    "offline_total_ms": 0,
+                    "offline_started_at": None,
+                    "offline_before_answer_ms": 0,
+                })
+                metrics["tab_switches"] = int(metrics.get("tab_switches", 0) or 0) + 1
+                if room_data.get("current_view") == "question" and not metrics.get("offline_started_at"):
+                    metrics["offline_started_at"] = time.time()
+                room_data.setdefault("disconnected", {})[username] = time.time()
+                log_event(
+                    "player_tab_hidden",
+                    room,
+                    username=username,
+                    question_index=room_data.get("question_index"),
+                    tab_switches=metrics["tab_switches"],
+                )
+                add_player_timeline_event(room_data, username, "went_offline", tab_switches=metrics["tab_switches"])
                 continue
 
             # Guard against malformed payloads
@@ -2247,7 +3423,11 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
                     "correct": correct_raw,
                 }
 
-                room_data.setdefault("appeals", []).append(appeal_item)
+                appeals = room_data.setdefault("appeals", [])
+                appeals.append(appeal_item)
+                appeal_item["appeal_id"] = len(appeals) - 1
+                log_event("appeal_requested", room, username=username, question_index=q_index_int, reason=reason)
+                add_player_timeline_event(room_data, username, "appeal_requested", reason=reason, question=question_text)
 
                 # Notify host immediately
                 if room_data.get("host"):
@@ -2300,6 +3480,7 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
                     continue
 
                 room_data["scores"][target] += delta
+                log_event("appeal_awarded", room, username=target, delta=delta, reason=reason)
 
                 # Log
                 room_data.setdefault("appeals", []).append({
@@ -2321,8 +3502,73 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
                     "delta": delta,
                     "reason": reason,
                     "leaderboard": leaderboard,
+                    "team_leaderboard": compute_team_leaderboard(room_data),
                     "total_scores": room_data["scores"],
                 })
+                continue
+
+            if role == "host" and data.get("type") == "set_team_mode":
+                if room_data.get("status") != "waiting":
+                    continue
+                enabled = bool(data.get("enabled"))
+                room_data["team_mode"] = enabled
+                log_event("team_mode_changed", room, enabled=enabled)
+                if not enabled:
+                    room_data["teams"] = []
+                    room_data["team_assignments"] = {}
+                await update_players(room)
+                await broadcast_team_update(room)
+                continue
+
+            if role == "host" and data.get("type") == "set_team_size":
+                if room_data.get("status") != "waiting":
+                    continue
+                try:
+                    team_size = int(data.get("team_size", 2))
+                except Exception:
+                    team_size = 2
+                room_data["team_size"] = 2 if team_size < 2 else 4 if team_size > 4 else team_size
+                room_data["team_mode"] = True
+                log_event("team_size_changed", room, team_size=room_data["team_size"])
+                room_data["teams"] = []
+                room_data["team_assignments"] = {}
+                await update_players(room)
+                await broadcast_team_update(room)
+                continue
+
+            if role == "host" and data.get("type") == "shuffle_teams":
+                if room_data.get("status") != "waiting":
+                    continue
+                active_players = [
+                    p for p in room_data.get("players", {}).keys()
+                    if p != "HOST" and p not in room_data.get("disconnected", {})
+                ]
+                if not active_players:
+                    continue
+                room_data["team_mode"] = True
+                team_size = int(room_data.get("team_size", 2))
+                shuffled = active_players[:]
+                random.shuffle(shuffled)
+                teams = []
+                assignments = {}
+                for idx in range(0, len(shuffled), team_size):
+                    members = shuffled[idx:idx + team_size]
+                    team_id = len(teams) + 1
+                    team_meta = build_team_meta(len(teams))
+                    team = {
+                        "id": team_id,
+                        "name": team_meta["name"],
+                        "color": team_meta["color"],
+                        "members": members,
+                    }
+                    teams.append(team)
+                    for member in members:
+                        assignments[member] = team_id
+                room_data["teams"] = teams
+                room_data["team_assignments"] = assignments
+                log_event("teams_shuffled", room, teams_count=len(teams), players_count=len(active_players))
+                await update_players(room)
+                await broadcast_team_update(room)
                 continue
 
             # ANSWER (player OR host)
@@ -2333,19 +3579,143 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
                 # ensure HOST exists in scores
                 if role == "host" and answer_user not in room_data["scores"]:
                     room_data["scores"][answer_user] = 0
+                quiz = room_data.get("quiz_questions") or QUIZZES.get(room_data.get("quiz"), [])
+                question_index = room_data.get("question_index", 0)
+                current_question = quiz[question_index] if 0 <= question_index < len(quiz) else {}
+                q_type = current_question.get("type", "mcq")
+
+                current_time = time.time()
+                elapsed = current_time - room_data["question_start"]
+                remaining = max(0, room_data["question_duration"] - elapsed)
+
+                if q_type == "wordle":
+                    target_raw = current_question.get("correct")
+                    target = apply_alias(normalize_answer(target_raw))
+                    guess_raw = data.get("value")
+                    guess = apply_alias(normalize_answer(guess_raw))
+                    max_attempts = max(1, int(current_question.get("max_attempts", 6)))
+                    existing = room_data["answers"].get(answer_user)
+
+                    if not target or not guess or len(guess) != len(target):
+                        continue
+                    if existing and existing.get("finalized"):
+                        continue
+
+                    attempts = list(existing.get("attempts", [])) if isinstance(existing, dict) else []
+                    if len(attempts) >= max_attempts:
+                        continue
+
+                    attempt_entry = {
+                        "guess": guess,
+                        "statuses": evaluate_wordle_guess(target, guess),
+                    }
+                    attempts.append(attempt_entry)
+                    solved = (guess == target)
+                    finalized = solved or len(attempts) >= max_attempts
+
+                    room_data["answers"][answer_user] = {
+                        "value": guess,
+                        "attempts": attempts,
+                        "remaining": remaining,
+                        "finalized": finalized,
+                        "solved": solved,
+                    }
+                    metrics = room_data.setdefault("current_question_metrics", {}).setdefault(answer_user, {
+                        "tab_switches": 0,
+                        "response_time_ms": None,
+                        "answered_at": None,
+                        "offline_total_ms": 0,
+                        "offline_started_at": None,
+                        "offline_before_answer_ms": 0,
+                        "manual_suspicious": False,
+                        "manual_suspicious_note": "",
+                    })
+                    if metrics.get("offline_started_at"):
+                        metrics["offline_total_ms"] = float(metrics.get("offline_total_ms", 0) or 0) + max(0.0, current_time - float(metrics["offline_started_at"])) * 1000
+                        metrics["offline_started_at"] = None
+                    if metrics.get("offline_before_answer_ms") in {None, 0}:
+                        metrics["offline_before_answer_ms"] = float(metrics.get("offline_total_ms", 0) or 0)
+                    offline_before_answer_seconds = round(float(metrics.get("offline_before_answer_ms", 0) or 0) / 1000, 2)
+                    if finalized or metrics.get("response_time_ms") is None:
+                        metrics["answered_at"] = current_time
+                        metrics["response_time_ms"] = int(max(0.0, elapsed) * 1000)
+                    room_data["answers"][answer_user]["offline_before_answer_seconds"] = offline_before_answer_seconds
+                    log_event("wordle_answer", room, username=answer_user, attempts=len(attempts), solved=solved, finalized=finalized)
+                    add_player_timeline_event(
+                        room_data,
+                        answer_user,
+                        "answered",
+                        answer=guess,
+                        response_time_ms=metrics.get("response_time_ms"),
+                        offline_before_answer_seconds=offline_before_answer_seconds,
+                    )
+
+                    total_expected = len(room_data["players"])
+                    finalized_players = [
+                        player_name for player_name in room_data["players"].keys()
+                        if room_data["answers"].get(player_name, {}).get("finalized")
+                    ]
+                    await broadcast(room, {
+                        "type": "progress",
+                        "answered": len(finalized_players),
+                        "total": total_expected,
+                        "answered_players": finalized_players
+                    })
+
+                    try:
+                        await websocket.send_json({
+                            "type": "wordle_feedback",
+                            "attempts": attempts,
+                            "attempts_used": len(attempts),
+                            "attempts_left": max(0, max_attempts - len(attempts)),
+                            "max_attempts": max_attempts,
+                            "solved": solved,
+                            "finalized": finalized,
+                        })
+                    except Exception:
+                        pass
+
+                    if len(finalized_players) >= total_expected:
+                        await broadcast(room, {"type": "all_answered"})
+                        current_index = room_data["question_index"]
+                        asyncio.create_task(reveal_after_delay(room, 0, current_index))
+                    continue
 
                 if answer_user not in room_data["answers"]:
-
-                    current_time = time.time()
-                    elapsed = current_time - room_data["question_start"]
-                    remaining = max(0, room_data["question_duration"] - elapsed)
-
                     room_data["answers"][answer_user] = {
                         "value": data.get("value"),
                         "selected": data.get("selected"),
                         "selected_list": data.get("selected_list"),
                         "remaining": remaining
                     }
+                    metrics = room_data.setdefault("current_question_metrics", {}).setdefault(answer_user, {
+                        "tab_switches": 0,
+                        "response_time_ms": None,
+                        "answered_at": None,
+                        "offline_total_ms": 0,
+                        "offline_started_at": None,
+                        "offline_before_answer_ms": 0,
+                        "manual_suspicious": False,
+                        "manual_suspicious_note": "",
+                    })
+                    if metrics.get("offline_started_at"):
+                        metrics["offline_total_ms"] = float(metrics.get("offline_total_ms", 0) or 0) + max(0.0, current_time - float(metrics["offline_started_at"])) * 1000
+                        metrics["offline_started_at"] = None
+                    if metrics.get("offline_before_answer_ms") in {None, 0}:
+                        metrics["offline_before_answer_ms"] = float(metrics.get("offline_total_ms", 0) or 0)
+                    offline_before_answer_seconds = round(float(metrics.get("offline_before_answer_ms", 0) or 0) / 1000, 2)
+                    metrics["answered_at"] = current_time
+                    metrics["response_time_ms"] = int(max(0.0, elapsed) * 1000)
+                    room_data["answers"][answer_user]["offline_before_answer_seconds"] = offline_before_answer_seconds
+                    log_event("answer_received", room, username=answer_user, question_type=q_type)
+                    add_player_timeline_event(
+                        room_data,
+                        answer_user,
+                        "answered",
+                        answer=data.get("value", data.get("selected_list", data.get("selected"))),
+                        response_time_ms=metrics.get("response_time_ms"),
+                        offline_before_answer_seconds=offline_before_answer_seconds,
+                    )
 
                     # live progress for host/player screens
                     total_expected = len(room_data["players"])
@@ -2373,11 +3743,18 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
 
             # START GAME
             if role == "host" and msg_type == "start":
+                if room_data.get("team_mode") and not room_data.get("teams"):
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": "Сначала перемешайте команды"
+                    })
+                    continue
                 room_data["status"] = "active"
                 room_data["paused"] = False
                 room_data["remaining_time"] = None
                 room_data["current_payload"] = None
                 room_data["current_view"] = "question"
+                log_event("game_started", room, quiz=room_data.get("quiz"))
                 await send_question(room)
 
             # PAUSE / RESUME
@@ -2393,6 +3770,7 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
                         "type": "paused",
                         "time": remaining
                     })
+                    log_event("game_paused", room, remaining=round(remaining, 3))
                 else:
                     room_data["paused"] = False
 
@@ -2403,6 +3781,7 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
                         "type": "resume",
                         "time": room_data["remaining_time"]
                     })
+                    log_event("game_resumed", room, remaining=room_data["remaining_time"])
 
             # KICK PLAYER
             if role == "host" and data["type"] == "kick":
@@ -2416,8 +3795,14 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
 
                     del room_data["players"][user]
                     del room_data["scores"][user]
+                    room_data.get("current_question_metrics", {}).pop(user, None)
+                    room_data.get("player_flags", {}).pop(user, None)
+                    room_data.get("late_joiners", {}).pop(user, None)
+                    remove_player_from_teams(room_data, user)
+                    log_event("player_kicked", room, username=user)
 
                     await update_players(room)
+                    await broadcast_team_update(room)
 
             # NEXT
             if role == "host" and data["type"] == "next":
@@ -2430,11 +3815,13 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
                 room_data["question_index"] += 1
                 room_data["current_payload"] = None
                 room_data["current_view"] = "question"
+                log_event("next_question", room, question_index=room_data["question_index"])
                 await send_question(room)
 
             if role == "host" and data["type"] == "force_reveal":
                 if room_data["status"] != "active":
                     continue
+                log_event("force_reveal", room, question_index=room_data["question_index"])
                 await send_reveal(room, room_data["question_index"])
 
             # END GAME (manual by host)
@@ -2445,18 +3832,18 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
                 room_data = rooms[room]
 
                 # Notify and kick ALL players
-                for username_player, ws_player in list(room_data["players"].items()):
-                    try:
-                        await ws_player.send_json({
-                            "type": "test_aborted",
-                            "message": "Тест завершен"
-                        })
-                    except:
-                        pass
-                    try:
-                        await ws_player.close()
-                    except:
-                        pass
+                player_items = list(room_data["players"].items())
+                await asyncio.gather(*[
+                    safe_send_json(room_data, ws_player, {
+                        "type": "test_aborted",
+                        "message": "Тест завершен"
+                    }, f"player:{username_player}")
+                    for username_player, ws_player in player_items
+                ], return_exceptions=True)
+                await asyncio.gather(*[
+                    ws_player.close()
+                    for _, ws_player in player_items
+                ], return_exceptions=True)
 
                 # Clear only players and game state
                 room_data["players"] = {}
@@ -2464,6 +3851,10 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
                 room_data["answers"] = {}
                 room_data["question_index"] = 0
                 room_data["status"] = "waiting"
+                room_data["team_mode"] = False
+                room_data["team_size"] = 2
+                room_data["teams"] = []
+                room_data["team_assignments"] = {}
                 room_data["paused"] = False
                 room_data["remaining_time"] = None
                 room_data["revealed"] = False
@@ -2478,6 +3869,7 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
                     "type": "return_to_lobby",
                     "message": "Тест завершён. Игроки удалены."
                 })
+                log_event("game_ended_by_host", room)
 
                 continue
 
@@ -2489,7 +3881,17 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
             if role == "player" and room_data.get("players", {}).get(username) is websocket:
                 # Mark disconnected, keep score/state for a short grace window.
                 room_data.setdefault("disconnected", {})[username] = time.time()
-                await notify_host_player_connection(room, username, "disconnected")
+                metrics = room_data.setdefault("current_question_metrics", {}).setdefault(username, {
+                    "tab_switches": 0,
+                    "response_time_ms": None,
+                    "answered_at": None,
+                    "offline_total_ms": 0,
+                    "offline_started_at": None,
+                })
+                if room_data.get("current_view") == "question" and not metrics.get("offline_started_at"):
+                    metrics["offline_started_at"] = time.time()
+                log_event("player_disconnected", room, username=username)
+                await notify_host_player_connection(room, username, "offline")
                 await update_players(room)
 
                 async def _cleanup_if_not_back(pin: str, user: str):
@@ -2512,24 +3914,77 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
                     rd.get("answers", {}).pop(user, None)
                     rd.get("appeal_dedup", {}).pop(user, None)
                     rd.get("disconnected", {}).pop(user, None)
+                    rd.get("current_question_metrics", {}).pop(user, None)
+                    rd.get("player_flags", {}).pop(user, None)
+                    rd.get("late_joiners", {}).pop(user, None)
+                    remove_player_from_teams(rd, user)
+                    log_event("player_removed_after_grace", pin, username=user)
                     await update_players(pin)
+                    await broadcast_team_update(pin)
 
                 asyncio.create_task(_cleanup_if_not_back(room, username))
 
             if role == "host":
                 # Если ведущий отключился — завершить тест для всех игроков
+                log_event("host_disconnected", room, username=username)
                 await broadcast(room, {
                     "type": "test_aborted",
                     "message": "Тест завершен"
                 })
 
-                for ws in room_data.get("players", {}).values():
-                    try:
-                        await ws.close()
-                    except:
-                        pass
+                await asyncio.gather(*[
+                    ws.close()
+                    for ws in room_data.get("players", {}).values()
+                ], return_exceptions=True)
 
                 del rooms[room]
+                await broadcast_admin({"type": "room_removed", "room": room})
+                log_event("room_closed_after_host_disconnect", room)
+
+
+@app.websocket("/ws/admin")
+async def admin_websocket(websocket: WebSocket):
+    await websocket.accept()
+    client_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=10))
+    admin_clients[client_id] = {
+        "ws": websocket,
+        "lock": asyncio.Lock(),
+    }
+    await safe_send_admin(client_id, {
+        "type": "admin_init",
+        **build_server_snapshot(),
+    })
+    log_event("admin_connected", client_id=client_id)
+
+    try:
+        while True:
+            data = await websocket.receive_json()
+            msg_type = data.get("type") if isinstance(data, dict) else None
+            if msg_type == "admin_ping":
+                await safe_send_admin(client_id, {"type": "admin_pong", "ts": time.time()})
+                continue
+            if msg_type == "admin_refresh":
+                await safe_send_admin(client_id, {
+                    "type": "admin_init",
+                    **build_server_snapshot(),
+                })
+                continue
+            if msg_type == "admin_action":
+                room = str(data.get("room") or "").strip()
+                action = str(data.get("action") or "").strip()
+                result = await execute_admin_action(room, action, data)
+                await safe_send_admin(client_id, {
+                    "type": "admin_action_result",
+                    "room": room,
+                    "action": action,
+                    "result": result,
+                })
+                continue
+    except WebSocketDisconnect:
+        pass
+    finally:
+        admin_clients.pop(client_id, None)
+        log_event("admin_disconnected", client_id=client_id)
 
 async def send_question(room):
     if room not in rooms:
@@ -2545,11 +4000,13 @@ async def send_question(room):
         game_over_payload = {
             "type": "game_over",
             "leaderboard": sorted_scores,
+            "team_leaderboard": compute_team_leaderboard(room_data),
             "streaks": room_data.get("streaks", {})
         }
         await broadcast(room, game_over_payload)
         room_data["current_payload"] = game_over_payload
         room_data["current_view"] = "game_over"
+        log_event("game_over", room, players=len(sorted_scores))
 
         # ⚠️ НЕ удаляем комнату автоматически
         # Ожидаем, пока ведущий создаст новую игру
@@ -2564,6 +4021,20 @@ async def send_question(room):
 
     room_data["answers"] = {}
     room_data["revealed"] = False
+    room_data["current_question_metrics"] = {
+        username: {
+            "tab_switches": 0,
+            "response_time_ms": None,
+            "answered_at": None,
+            "offline_total_ms": 0,
+            "offline_started_at": None,
+            "offline_before_answer_ms": 0,
+            "manual_suspicious": False,
+            "manual_suspicious_note": "",
+        }
+        for username in room_data.get("players", {}).keys()
+        if username != "HOST"
+    }
     room_data.setdefault("appeal_dedup", {})
     # clear dedup for this question only
     # (keep dict but remove any keys for previous questions)
@@ -2595,7 +4066,9 @@ async def send_question(room):
         "image_offset": question.get("image_offset"),
         "points": question.get("points", 1000),
         "time": question_time,
-        "max_select": max_select
+        "max_select": max_select,
+        "word_length": len(apply_alias(normalize_answer(question.get("correct")))) if question.get("type") == "wordle" else None,
+        "max_attempts": max(1, int(question.get("max_attempts", 6))) if question.get("type") == "wordle" else None,
     })
     room_data["current_payload"] = {
         "type": "question",
@@ -2610,11 +4083,18 @@ async def send_question(room):
         "image_offset": question.get("image_offset"),
         "points": question.get("points", 1000),
         "time": question_time,
-        "max_select": max_select
+        "max_select": max_select,
+        "word_length": len(apply_alias(normalize_answer(question.get("correct")))) if question.get("type") == "wordle" else None,
+        "max_attempts": max(1, int(question.get("max_attempts", 6))) if question.get("type") == "wordle" else None,
     }
     room_data["current_view"] = "question"
+    for username in room_data.get("players", {}).keys():
+        if username == "HOST":
+            continue
+        add_player_timeline_event(room_data, username, "question_opened", question=display_question_text, question_type=question.get("type", "mcq"))
 
     current_index = room_data["question_index"]
+    log_event("question_sent", room, question_index=index, question_type=question.get("type", "mcq"), time=question_time)
     asyncio.create_task(reveal_after_delay(room, question_time, current_index))
 
 async def send_reveal(room, question_index):
@@ -2645,6 +4125,8 @@ async def send_reveal(room, question_index):
             correct = correct_value
         else:
             correct = [correct_value]
+    elif q_type == "wordle":
+        correct = correct_value
     else:
         correct = correct_value
 
@@ -2662,8 +4144,10 @@ async def send_reveal(room, question_index):
 
     users_answers = {}
     for user, data_answer in room_data["answers"].items():
-        if q_type == "numeric" or q_type == "text":
+        if q_type in {"numeric", "text"}:
             users_answers[user] = data_answer.get("value")
+        elif q_type == "wordle":
+            users_answers[user] = data_answer.get("attempts", [])
         elif data_answer.get("selected_list") is not None:
             users_answers[user] = data_answer.get("selected_list")
         else:
@@ -2732,6 +4216,18 @@ async def send_reveal(room, question_index):
                 points_awarded[user] = 0
             continue
 
+        if q_type == "wordle":
+            attempts = data_answer.get("attempts", []) if isinstance(data_answer, dict) else []
+            solved = bool(data_answer.get("solved")) if isinstance(data_answer, dict) else False
+            if solved:
+                attempts_used = max(1, len(attempts))
+                wordle_points = max(0, 1100 - (attempts_used * 100))
+                room_data["scores"][user] += wordle_points
+                points_awarded[user] = wordle_points
+            else:
+                points_awarded[user] = 0
+            continue
+
         if selected_list is not None:
             selected_set = set(selected_list)
             correct_set = set(correct)
@@ -2762,8 +4258,43 @@ async def send_reveal(room, question_index):
         "correct": question.get("correct"),
         "users_answers": users_answers,
         "points_awarded": points_awarded.copy(),
+        "response_times_ms": {
+            user: metrics.get("response_time_ms")
+            for user, metrics in (room_data.get("current_question_metrics") or {}).items()
+            if isinstance(metrics, dict)
+        },
+        "tab_switches": {
+            user: int(metrics.get("tab_switches", 0) or 0)
+            for user, metrics in (room_data.get("current_question_metrics") or {}).items()
+            if isinstance(metrics, dict)
+        },
+        "offline_before_answer_ms": {
+            user: int(float(metrics.get("offline_before_answer_ms", 0) or 0))
+            for user, metrics in (room_data.get("current_question_metrics") or {}).items()
+            if isinstance(metrics, dict)
+        },
+        "manual_suspicious": {
+            user: bool(metrics.get("manual_suspicious"))
+            for user, metrics in (room_data.get("current_question_metrics") or {}).items()
+            if isinstance(metrics, dict) and metrics.get("manual_suspicious")
+        },
+        "manual_suspicious_note": {
+            user: str(metrics.get("manual_suspicious_note") or "")
+            for user, metrics in (room_data.get("current_question_metrics") or {}).items()
+            if isinstance(metrics, dict) and (metrics.get("manual_suspicious") or metrics.get("manual_suspicious_note"))
+        },
+        "offline_ms": {
+            user: int(
+                (float(metrics.get("offline_total_ms", 0) or 0) +
+                 (max(0.0, time.time() - float(metrics.get("offline_started_at"))) * 1000 if metrics.get("offline_started_at") else 0.0))
+            )
+            for user, metrics in (room_data.get("current_question_metrics") or {}).items()
+            if isinstance(metrics, dict)
+        },
         "leaderboard": leaderboard.copy(),
+        "team_leaderboard": compute_team_leaderboard(room_data),
         "answered_count": len(users_answers),
+        "max_attempts": max(1, int(question.get("max_attempts", 6))) if q_type == "wordle" else None,
     })
 
     reveal_payload = {
@@ -2783,22 +4314,28 @@ async def send_reveal(room, question_index):
         "stats": stats,
         "users_answers": users_answers,
         "points": question.get("points", 1000),
-        "points_awarded": points_awarded
+        "points_awarded": points_awarded,
+        "team_leaderboard": compute_team_leaderboard(room_data),
+        "max_attempts": max(1, int(question.get("max_attempts", 6))) if q_type == "wordle" else None,
+        "word_length": len(apply_alias(normalize_answer(question.get("correct")))) if q_type == "wordle" else None,
     }
     await broadcast(room, reveal_payload)
     room_data["current_payload"] = reveal_payload
     room_data["current_view"] = "reveal"
+    log_event("reveal_sent", room, question_index=question_index, question_type=q_type, answers=len(users_answers))
 
     await asyncio.sleep(2)
 
     leaderboard_payload = {
         "type": "leaderboard",
         "leaderboard": leaderboard,
+        "team_leaderboard": compute_team_leaderboard(room_data),
         "total_scores": room_data["scores"]
     }
     await broadcast(room, leaderboard_payload)
     room_data["current_payload"] = leaderboard_payload
     room_data["current_view"] = "leaderboard"
+    log_event("leaderboard_sent", room, question_index=question_index, leaderboard_size=len(leaderboard))
 
 async def reveal_after_delay(room, delay, question_index):
 
@@ -2827,41 +4364,36 @@ async def reveal_after_delay(room, delay, question_index):
     await send_reveal(room, question_index)
 
 async def update_players(room):
+    if room not in rooms:
+        return
     room_data = rooms[room]
     if room_data["host"]:
-        await room_data["host"].send_json({
+        await safe_send_json(room_data, room_data["host"], {
             "type": "players_update",
             "players": [
-                p for p in room_data["players"].keys()
-                if p != "HOST" and p not in room_data.get("disconnected", {})
-            ]
-        })
-
-async def broadcast(room, message):
-    room_data = rooms[room]
-
-    if room_data["host"]:
-        await room_data["host"].send_json(message)
-
-    for ws in list(room_data["players"].values()):
-        try:
-            await ws.send_json(message)
-        except:
-            pass
+                {
+                    "username": p,
+                    "connected": p not in room_data.get("disconnected", {}),
+                    "late_joiner": bool(room_data.get("late_joiners", {}).get(p)),
+                }
+                for p in room_data["players"].keys()
+                if p != "HOST"
+            ],
+            "team_mode": bool(room_data.get("team_mode")),
+            "team_size": int(room_data.get("team_size", 2)),
+            "teams": room_data.get("teams", []),
+        }, "host")
 
 
 async def notify_host_player_connection(room: str, username: str, status: str):
     room_data = rooms.get(room)
     if not room_data or not room_data.get("host"):
         return
-    try:
-        await room_data["host"].send_json({
-            "type": "player_connection",
-            "username": username,
-            "status": status,
-        })
-    except Exception:
-        pass
+    await safe_send_json(room_data, room_data["host"], {
+        "type": "player_connection",
+        "username": username,
+        "status": status,
+    }, "host")
 
 from fastapi.responses import StreamingResponse
 import io
@@ -2883,13 +4415,21 @@ async def export_results(room: str, request: Request):
 
     player_correct = {player: 0 for player, _ in sorted_scores}
     per_question_rows = []
+    detailed_rows = []
+    anti_cheat_rows = []
 
     for item in question_history:
         points_awarded = item.get("points_awarded", {}) or {}
+        users_answers = item.get("users_answers", {}) or {}
+        response_times_ms = item.get("response_times_ms", {}) or {}
+        offline_before_answer_ms = item.get("offline_before_answer_ms", {}) or {}
+        manual_suspicious = item.get("manual_suspicious", {}) or {}
+        manual_suspicious_note = item.get("manual_suspicious_note", {}) or {}
         answered_count = max(0, int(item.get("answered_count", 0)))
         correct_count = sum(1 for delta in points_awarded.values() if isinstance(delta, (int, float)) and delta > 0)
         accuracy = round((correct_count / answered_count) * 100, 1) if answered_count else 0.0
         per_question_rows.append({
+            "question_index": int(item.get("question_index", 0)) + 1,
             "question": item.get("question", ""),
             "answered": answered_count,
             "correct": correct_count,
@@ -2900,7 +4440,218 @@ async def export_results(room: str, request: Request):
             if player in player_correct and isinstance(delta, (int, float)) and delta > 0:
                 player_correct[player] += 1
 
+        players_for_question = sorted(set(users_answers.keys()) | set(points_awarded.keys()) | set(response_times_ms.keys()) | set(offline_before_answer_ms.keys()) | set(manual_suspicious.keys()) | set(manual_suspicious_note.keys()))
+        for player in players_for_question:
+            row = {
+                "question_index": int(item.get("question_index", 0)) + 1,
+                "question": item.get("question", ""),
+                "question_type": item.get("question_type", ""),
+                "player": player,
+                "answer": stringify_export_value(users_answers.get(player)),
+                "points_awarded": int(points_awarded.get(player, 0) or 0),
+                "response_time_ms": response_times_ms.get(player),
+                "offline_before_answer_seconds": round(float(offline_before_answer_ms.get(player, 0) or 0) / 1000, 2),
+                "tab_switches": int((item.get("tab_switches", {}) or {}).get(player, 0) or 0),
+                "manual_suspicious": bool(manual_suspicious.get(player)),
+                "manual_suspicious_note": str(manual_suspicious_note.get(player, "") or ""),
+            }
+            detailed_rows.append(row)
+            if row["offline_before_answer_seconds"] > 0 or row["tab_switches"] > 0 or row["manual_suspicious"]:
+                anti_cheat_rows.append(row)
+
     export_format = (request.query_params.get("format") or "html").strip().lower()
+
+    if export_format == "anti_cheat_csv":
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow([
+            "Question #",
+            "Question",
+            "Question Type",
+            "Player",
+            "Answer",
+            "Response Time (ms)",
+            "Offline Before Answer (sec)",
+            "Tab Switches",
+            "Manual Suspicious",
+            "Suspicious Note",
+            "Points Awarded",
+        ])
+        for row in anti_cheat_rows:
+            writer.writerow([
+                row["question_index"],
+                row["question"],
+                row["question_type"],
+                row["player"],
+                row["answer"],
+                row["response_time_ms"] if row["response_time_ms"] is not None else "",
+                row["offline_before_answer_seconds"],
+                row["tab_switches"],
+                "yes" if row["manual_suspicious"] else "no",
+                row["manual_suspicious_note"],
+                row["points_awarded"],
+            ])
+        output.seek(0)
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": f"attachment; filename=anti_cheat_report_{room}.csv"
+            }
+        )
+
+    if export_format == "anti_cheat_html":
+        anti_cheat_rows_sorted = sorted(
+            anti_cheat_rows,
+            key=lambda row: (
+                str(row.get("player", "")).lower(),
+                int(row.get("question_index", 0) or 0),
+            )
+        )
+        anti_cheat_player_names = sorted({
+            str(row.get("player", "")).strip()
+            for row in anti_cheat_rows_sorted
+            if str(row.get("player", "")).strip()
+        }, key=lambda value: value.lower())
+        anti_cheat_player_names.extend(
+            name for name in sorted({
+                str(entry.get("username", "")).strip()
+                for entry in appeals
+                if str(entry.get("username", "")).strip() and str(entry.get("username", "")).strip() not in anti_cheat_player_names
+            }, key=lambda value: value.lower())
+        )
+        anti_cheat_table = "".join(
+            (
+                f"<tr style=\"background:{'rgba(239,68,68,.14)' if row['manual_suspicious'] else 'transparent'};\">"
+                f"<td data-player=\"{html.escape(str(row['player']))}\">{row['question_index']}</td>"
+                f"<td>{html.escape(str(row['player']))}</td>"
+                f"<td>{html.escape(str(row['question']))}</td>"
+                f"<td>{html.escape(str(row['question_type']))}</td>"
+                f"<td>{html.escape(str(row['answer']))}</td>"
+                f"<td>{row['response_time_ms'] if row['response_time_ms'] is not None else '—'}</td>"
+                f"<td>{row['offline_before_answer_seconds']}</td>"
+                f"<td>{row['tab_switches']}</td>"
+                f"<td>{'offline before answer' if row['offline_before_answer_seconds'] > 0 else ''}{' + ' if row['offline_before_answer_seconds'] > 0 and row['tab_switches'] > 0 else ''}{'tab switch' if row['tab_switches'] > 0 else ''}{' + ' if (row['offline_before_answer_seconds'] > 0 or row['tab_switches'] > 0) and row['manual_suspicious'] else ''}{'manual suspicious' if row['manual_suspicious'] else ''}{' — ' + html.escape(str(row['manual_suspicious_note'])) if row['manual_suspicious_note'] else ''}</td>"
+                f"<td>{row['points_awarded']}</td>"
+                f"</tr>"
+            )
+            for row in anti_cheat_rows_sorted
+        ) or "<tr><td colspan='10'>Подозрительных событий не найдено</td></tr>"
+        anti_cheat_appeal_table = "".join(
+            (
+                f"<tr data-player=\"{html.escape(str(entry.get('username', '')))}\">"
+                f"<td>{int(entry.get('question_index', 0) or 0) + 1 if entry.get('question_index') is not None else '—'}</td>"
+                f"<td>{html.escape(str(entry.get('username', '')))}</td>"
+                f"<td>{html.escape(str(entry.get('question', '')))}</td>"
+                f"<td>{html.escape(str(entry.get('answer', '')) or '—')}</td>"
+                f"<td>{html.escape(str(entry.get('reason', '')) or '—')}</td>"
+                f"<td>{'Одобрена' if entry.get('resolution') == 'approved' else 'Отклонена' if entry.get('resolution') == 'rejected' else 'Новая'}</td>"
+                f"</tr>"
+            )
+            for entry in sorted(
+                [entry for entry in appeals if entry.get("username")],
+                key=lambda entry: (
+                    str(entry.get("username", "")).lower(),
+                    int(entry.get("question_index", 0) or 0),
+                )
+            )
+        ) or "<tr><td colspan='6'>Жалоб по игрокам пока нет</td></tr>"
+        report_html = f"""
+        <!doctype html>
+        <html lang="ru">
+        <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Anti-Cheat Report {room}</title>
+        <style>
+        body{{margin:0;font-family:DM Sans,Arial,sans-serif;background:radial-gradient(circle at top left,#3f0d12,#0f172a 52%,#111827);color:#fff;padding:28px;}}
+        .wrap{{max-width:1220px;margin:0 auto;}}
+        .hero{{display:flex;justify-content:space-between;gap:16px;align-items:end;flex-wrap:wrap;margin-bottom:22px;}}
+        .hero h1{{margin:0;font-size:38px;}}
+        .sub{{color:#fecaca;font-weight:700}}
+        .card{{background:rgba(255,255,255,.06);border:1px solid rgba(248,113,113,.18);border-radius:24px;padding:20px;box-shadow:0 24px 70px rgba(0,0,0,.38);}}
+        table{{width:100%;border-collapse:collapse;font-size:14px;}}
+        th,td{{padding:12px 10px;text-align:left;border-bottom:1px solid rgba(255,255,255,.08);vertical-align:top;}}
+        th{{color:#fecaca;font-size:12px;text-transform:uppercase;letter-spacing:.08em;}}
+        .actions{{margin-bottom:18px;display:flex;gap:12px;flex-wrap:wrap;}}
+        .toolbar{{margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap;}}
+        .toolbar input{{min-width:260px;padding:12px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.08);color:#fff;font:inherit;}}
+        .btn{{display:inline-block;padding:12px 16px;border-radius:14px;background:#ef4444;color:#fff;text-decoration:none;font-weight:800;border:0;cursor:pointer;}}
+        .btn-secondary{{background:rgba(148,163,184,.22);border:1px solid rgba(148,163,184,.35);}}
+        .btn-ghost{{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);}}
+        </style>
+        </head>
+        <body>
+        <div class="wrap">
+            <div class="hero">
+                <div>
+                    <div class="sub">Anti-Cheat Report</div>
+                    <h1>Комната {room}</h1>
+                    <div class="sub">Подозрительных записей: {len(anti_cheat_rows)}</div>
+                </div>
+                <div class="actions">
+                    <a class="btn" href="/export/{room}?format=anti_cheat_csv">Скачать Anti-Cheat CSV</a>
+                    <button class="btn btn-secondary" type="button" onclick="window.print()">Печать / PDF</button>
+                </div>
+            </div>
+            <div class="card">
+                <div class="toolbar">
+                    <button class="btn btn-ghost" type="button" onclick="sortTable('antiCheatTable', 1, false)">Сортировать по нику</button>
+                    <button class="btn btn-ghost" type="button" onclick="sortTable('antiCheatTable', 0, true)">Сортировать по вопросу</button>
+                    <input id="playerFilterInput" list="playerFilterOptions" type="text" placeholder="Фильтр по нику игрока">
+                    <datalist id="playerFilterOptions">
+                        {"".join(f'<option value="{html.escape(name)}"></option>' for name in anti_cheat_player_names)}
+                    </datalist>
+                </div>
+                <table>
+                    <thead><tr><th>#</th><th>Игрок</th><th>Вопрос</th><th>Тип</th><th>Ответ</th><th>Ответ, мс</th><th>Offline до ответа, сек</th><th>Tab switches</th><th>Сигнал</th><th>Очки</th></tr></thead>
+                    <tbody id="antiCheatTable">{anti_cheat_table}</tbody>
+                </table>
+            </div>
+            <div class="card" style="margin-top:20px;">
+                <div class="toolbar">
+                    <div class="sub">Все жалобы на выбранного игрока</div>
+                </div>
+                <table>
+                    <thead><tr><th>#</th><th>Игрок</th><th>Вопрос</th><th>Ответ</th><th>Причина жалобы</th><th>Статус</th></tr></thead>
+                    <tbody id="appealPlayerTable">{anti_cheat_appeal_table}</tbody>
+                </table>
+            </div>
+        </div>
+        <script>
+        function sortTable(tableId, columnIndex, numeric){{
+            const tbody = document.getElementById(tableId);
+            if(!tbody) return;
+            const rows = Array.from(tbody.querySelectorAll("tr"));
+            rows.sort((a, b)=>{{
+                const aText = (a.children[columnIndex]?.textContent || "").trim();
+                const bText = (b.children[columnIndex]?.textContent || "").trim();
+                if(numeric){{
+                    return Number(aText || 0) - Number(bText || 0);
+                }}
+                return aText.localeCompare(bText, "ru", {{ sensitivity: "base" }});
+            }});
+            rows.forEach((row)=>tbody.appendChild(row));
+        }}
+        function filterByPlayer(){{
+            const value = (document.getElementById("playerFilterInput")?.value || "").trim().toLowerCase();
+            const antiRows = Array.from(document.querySelectorAll("#antiCheatTable tr"));
+            antiRows.forEach((row)=>{{
+                const player = (row.children[1]?.textContent || "").trim().toLowerCase();
+                row.style.display = !value || player.includes(value) ? "" : "none";
+            }});
+            const appealRows = Array.from(document.querySelectorAll("#appealPlayerTable tr"));
+            appealRows.forEach((row)=>{{
+                const player = (row.children[1]?.textContent || "").trim().toLowerCase();
+                row.style.display = !value || player.includes(value) ? "" : "none";
+            }});
+        }}
+        document.getElementById("playerFilterInput")?.addEventListener("input", filterByPlayer);
+        </script>
+        </body>
+        </html>
+        """
+        return HTMLResponse(report_html)
 
     if sorted_scores and export_format != "csv":
         total_questions = len(question_history)
@@ -2924,9 +4675,14 @@ async def export_results(room: str, request: Request):
             """)
 
         question_table = "".join(
-            f"<tr><td>{idx}</td><td>{html.escape(str(entry['question']))}</td><td>{entry['answered']}</td><td>{entry['correct']}</td><td>{entry['accuracy']}%</td></tr>"
-            for idx, entry in enumerate(per_question_rows, start=1)
+            f"<tr><td>{entry['question_index']}</td><td>{html.escape(str(entry['question']))}</td><td>{entry['answered']}</td><td>{entry['correct']}</td><td>{entry['accuracy']}%</td></tr>"
+            for entry in per_question_rows
         ) or "<tr><td colspan='5'>История вопросов пока пуста</td></tr>"
+
+        detailed_table = "".join(
+            f"<tr><td>{row['question_index']}</td><td>{html.escape(str(row['player']))}</td><td>{html.escape(str(row['question']))}</td><td>{html.escape(str(row['question_type']))}</td><td>{html.escape(str(row['answer']))}</td><td>{row['points_awarded']}</td><td>{row['response_time_ms'] if row['response_time_ms'] is not None else '—'}</td><td>{row['offline_before_answer_seconds']}</td></tr>"
+            for row in sorted(detailed_rows, key=lambda row: (str(row.get("player", "")).lower(), int(row.get("question_index", 0) or 0)))
+        ) or "<tr><td colspan='8'>Подробной статистики пока нет</td></tr>"
 
         appeal_table = "".join(
             f"<tr><td>{idx}</td><td>{html.escape(str(entry.get('username','')))}</td><td>{html.escape(str(entry.get('reason','')))}</td><td>{int(entry.get('delta',0)):+d}</td></tr>"
@@ -2952,7 +4708,9 @@ async def export_results(room: str, request: Request):
         th,td{{padding:12px 10px;text-align:left;border-bottom:1px solid rgba(255,255,255,0.08);vertical-align:top;}}
         th{{color:#cbd5e1;font-size:13px;text-transform:uppercase;letter-spacing:.08em;}}
         .actions{{margin-bottom:18px;display:flex;gap:12px;flex-wrap:wrap;}}
-        .btn{{display:inline-block;padding:12px 16px;border-radius:14px;background:#7c3aed;color:#fff;text-decoration:none;font-weight:800;}}
+        .btn{{display:inline-block;padding:12px 16px;border-radius:14px;background:#7c3aed;color:#fff;text-decoration:none;font-weight:800;border:0;cursor:pointer;}}
+        .btn-secondary{{background:rgba(148,163,184,.22);border:1px solid rgba(148,163,184,.35);}}
+        .btn-ghost{{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);}}
         </style>
         </head>
         <body>
@@ -2965,6 +4723,8 @@ async def export_results(room: str, request: Request):
                 </div>
                 <div class="actions">
                     <a class="btn" href="/export/{room}?format=csv">Скачать CSV</a>
+                    <a class="btn" href="/export/{room}?format=anti_cheat_html">Anti-Cheat Документ</a>
+                    <button class="btn btn-secondary" type="button" onclick="exitReport()">Выйти из отчёта</button>
                 </div>
             </div>
             <div class="grid">
@@ -2990,7 +4750,44 @@ async def export_results(room: str, request: Request):
                     <tbody>{appeal_table}</tbody>
                 </table>
             </div>
+            <div class="card" style="margin-top:24px;">
+                <h2>Подробно по ответам</h2>
+                <div class="actions">
+                    <button class="btn btn-ghost" type="button" onclick="sortTable('detailedTable', 1, false)">Сортировать по нику</button>
+                    <button class="btn btn-ghost" type="button" onclick="sortTable('detailedTable', 0, true)">Сортировать по вопросу</button>
+                </div>
+                <table>
+                    <thead><tr><th>#</th><th>Игрок</th><th>Вопрос</th><th>Тип</th><th>Ответ</th><th>Очки</th><th>Ответ, мс</th><th>Offline перед ответом, сек</th></tr></thead>
+                    <tbody id="detailedTable">{detailed_table}</tbody>
+                </table>
+            </div>
         </div>
+        <script>
+        function exitReport(){{
+            if(window.history.length > 1){{
+                window.history.back();
+                return;
+            }}
+            try{{
+                window.close();
+            }}catch(e){{}}
+            window.location.href = "/";
+        }}
+        function sortTable(tableId, columnIndex, numeric){{
+            const tbody = document.getElementById(tableId);
+            if(!tbody) return;
+            const rows = Array.from(tbody.querySelectorAll("tr"));
+            rows.sort((a, b)=>{{
+                const aText = (a.children[columnIndex]?.textContent || "").trim();
+                const bText = (b.children[columnIndex]?.textContent || "").trim();
+                if(numeric){{
+                    return Number(aText || 0) - Number(bText || 0);
+                }}
+                return aText.localeCompare(bText, "ru", {{ sensitivity: "base" }});
+            }});
+            rows.forEach((row)=>tbody.appendChild(row));
+        }}
+        </script>
         </body>
         </html>
         """
@@ -2998,10 +4795,38 @@ async def export_results(room: str, request: Request):
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Place", "Player", "Score"])
+    writer.writerow([
+        "Place",
+        "Player",
+        "Score",
+        "Question #",
+        "Question",
+        "Question Type",
+        "Answer",
+        "Points Awarded",
+        "Response Time (ms)",
+        "Offline Before Answer (sec)",
+    ])
 
-    for i, (player, score) in enumerate(sorted_scores, start=1):
-        writer.writerow([i, player, score])
+    place_map = {player: index for index, (player, _) in enumerate(sorted_scores, start=1)}
+    score_map = {player: score for player, score in sorted_scores}
+    if detailed_rows:
+        for row in detailed_rows:
+            writer.writerow([
+                place_map.get(row["player"], ""),
+                row["player"],
+                score_map.get(row["player"], 0),
+                row["question_index"],
+                row["question"],
+                row["question_type"],
+                row["answer"],
+                row["points_awarded"],
+                row["response_time_ms"] if row["response_time_ms"] is not None else "",
+                row["offline_before_answer_seconds"],
+            ])
+    else:
+        for i, (player, score) in enumerate(sorted_scores, start=1):
+            writer.writerow([i, player, score, "", "", "", "", "", "", ""])
 
     output.seek(0)
 

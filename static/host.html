@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Панель ведущего</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -218,12 +218,252 @@ button:hover::after{
 .stats-bar{height:12px;background:rgba(255,255,255,0.15);border-radius:10px;margin-top:8px;overflow:hidden;}
 .stats-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));width:0%;transition:width .8s ease;}
 
+.fair-play-note{
+    margin-top:18px;
+    padding:18px 20px;
+    border-radius:20px;
+    background:
+        radial-gradient(circle at top right, rgba(255,255,255,.12), transparent 30%),
+        linear-gradient(145deg, rgba(127,29,29,.92), rgba(185,28,28,.88) 48%, rgba(249,115,22,.7));
+    border:1px solid rgba(254,202,202,.32);
+    color:#fff1f2;
+    font-size:16px;
+    line-height:1.65;
+    font-weight:800;
+    text-align:left;
+    box-shadow:0 20px 48px rgba(127,29,29,.28), 0 10px 26px rgba(0,0,0,.22);
+}
+
+.fair-play-note strong{
+    display:block;
+    margin-bottom:8px;
+    color:#ffffff;
+    font-size:17px;
+    letter-spacing:.02em;
+}
+
 .question-card{
     font-size:32px;
     font-weight:900;
     text-align:center;
     margin-bottom:25px;
     animation:fadeInUp .6s ease;
+}
+
+.wordle-board{
+    display:grid;
+    gap:10px;
+    margin-top:22px;
+}
+
+.wordle-shell{
+    margin-top:20px;
+    padding:22px;
+    border-radius:24px;
+    background:
+        radial-gradient(circle at top right, rgba(124,58,237,.18), transparent 34%),
+        radial-gradient(circle at bottom left, rgba(6,182,212,.14), transparent 36%),
+        linear-gradient(145deg, rgba(15,23,42,.94), rgba(30,41,59,.84));
+    border:1px solid rgba(148,163,184,.2);
+    box-shadow:0 28px 70px rgba(0,0,0,.34);
+    transition:transform .28s ease, box-shadow .28s ease, border-color .28s ease;
+}
+
+.wordle-shell:hover{
+    transform:translateY(-2px);
+    border-color:rgba(148,163,184,.28);
+    box-shadow:0 34px 80px rgba(0,0,0,.38);
+}
+
+.wordle-status{
+    display:grid;
+    grid-template-columns:repeat(3, minmax(0, 1fr));
+    gap:10px;
+    margin-bottom:18px;
+}
+
+.wordle-stat{
+    padding:12px 14px;
+    border-radius:18px;
+    background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.08);
+    backdrop-filter:blur(8px);
+    transition:transform .24s ease, border-color .24s ease, background .24s ease;
+}
+
+.wordle-stat:hover{
+    transform:translateY(-1px);
+    border-color:rgba(255,255,255,.14);
+    background:rgba(255,255,255,.08);
+}
+
+.wordle-stat-label{
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    opacity:.66;
+    font-weight:800;
+}
+
+.wordle-stat-value{
+    margin-top:6px;
+    font-size:26px;
+    font-weight:900;
+}
+
+.wordle-keyboard{
+    margin-top:18px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    width:100%;
+    max-width:100%;
+}
+
+.wordle-keyboard-row{
+    display:flex;
+    gap:8px;
+    justify-content:center;
+    width:100%;
+    max-width:100%;
+}
+
+.wordle-key{
+    min-width:0;
+    flex:1 1 0;
+    height:46px;
+    padding:0 6px;
+    margin:0;
+    border-radius:14px;
+    border:1px solid rgba(255,255,255,.1);
+    background:linear-gradient(145deg, rgba(255,255,255,.1), rgba(148,163,184,.05));
+    color:#fff;
+    font-size:16px;
+    font-weight:900;
+    box-shadow:0 10px 22px rgba(0,0,0,.22);
+    transition:transform .16s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease;
+    touch-action:manipulation;
+    -webkit-user-select:none;
+    user-select:none;
+    -webkit-tap-highlight-color:transparent;
+}
+
+.wordle-key:hover{
+    transform:translateY(-1px);
+    box-shadow:0 14px 26px rgba(0,0,0,.26);
+    border-color:rgba(255,255,255,.18);
+}
+
+.wordle-key:active{
+    transform:translateY(1px) scale(.98);
+}
+
+.wordle-key.wide{
+    flex:1.8 1 0;
+    font-size:14px;
+    letter-spacing:.04em;
+}
+
+.wordle-key.correct{
+    background:#22c55e;
+    border-color:#22c55e;
+}
+
+.wordle-key.present{
+    background:#facc15;
+    border-color:#facc15;
+    color:#111827;
+}
+
+.wordle-key.absent{
+    background:#ef4444;
+    border-color:#ef4444;
+}
+
+@media (max-width: 520px){
+    .wordle-keyboard{
+        gap:6px;
+    }
+    .wordle-keyboard-row{
+        gap:6px;
+    }
+    .wordle-key{
+        height:44px;
+        padding:0 4px;
+        font-size:14px;
+        border-radius:12px;
+    }
+    .wordle-key.wide{
+        font-size:12px;
+    }
+}
+
+.wordle-row{
+    display:grid;
+    gap:10px;
+    perspective:900px;
+}
+
+.wordle-row.flip-row .wordle-tile{
+    animation:wordleFlip .6s ease both;
+    animation-delay:calc(var(--tile-index, 0) * 90ms);
+    transform-style:preserve-3d;
+}
+
+.wordle-row.shake-row{
+    animation:wordleShake .38s ease;
+}
+
+.wordle-tile.pop-tile{
+    animation:wordlePop .16s ease;
+}
+
+.wordle-tile{
+    aspect-ratio:1 / 1;
+    min-height:48px;
+    border-radius:14px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:24px;
+    font-weight:900;
+    text-transform:uppercase;
+    border:1px solid rgba(255,255,255,.1);
+    background:linear-gradient(145deg, rgba(255,255,255,.08), rgba(148,163,184,.04));
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 10px 24px rgba(0,0,0,.22);
+    transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease, background .24s ease;
+}
+
+.wordle-tile.active{
+    border-color:#93c5fd;
+    background:linear-gradient(145deg, rgba(59,130,246,.22), rgba(255,255,255,.08));
+    box-shadow:0 0 0 2px rgba(147,197,253,.22), 0 16px 30px rgba(37,99,235,.16);
+    transform:translateY(-1px);
+}
+
+.wordle-tile.correct{background:#22c55e !important;}
+.wordle-tile.present{background:#facc15 !important;color:#111827;}
+.wordle-tile.absent{background:#ef4444 !important;}
+
+@keyframes wordleFlip{
+    0%{ transform:rotateX(0deg); }
+    45%{ transform:rotateX(90deg); }
+    100%{ transform:rotateX(0deg); }
+}
+
+@keyframes wordleShake{
+    0%{ transform:translateX(0); }
+    20%{ transform:translateX(-10px); }
+    40%{ transform:translateX(10px); }
+    60%{ transform:translateX(-7px); }
+    80%{ transform:translateX(7px); }
+    100%{ transform:translateX(0); }
+}
+
+@keyframes wordlePop{
+    0%{ transform:scale(.92); }
+    55%{ transform:scale(1.08); }
+    100%{ transform:scale(1); }
 }
 
 @keyframes fadeInUp{
@@ -574,12 +814,12 @@ button:hover::after{
     }
 /* === Floating Host Panel Premium Look === */
 #controlPanel{
-    position:fixed;
-    top:20px;
-    left:50%;
-    transform:translateX(-50%);
-    width:85%;
-    max-width:800px;
+    position:sticky;
+    top:18px;
+    left:auto;
+    transform:none;
+    width:100%;
+    max-width:none;
     z-index:2000;
     border-radius:28px;
     backdrop-filter:blur(18px);
@@ -589,7 +829,7 @@ button:hover::after{
 }
 
 body.game-mode #controlPanel{
-    transform:translate(-50%, -150%);
+    transform:translateY(-150%);
     opacity:0;
     pointer-events:none;
 }
@@ -697,6 +937,31 @@ body.game-mode #gameSection{
 .mini-leaderboard-row.leader-fall-impact{
     animation:leaderFallImpact .7s cubic-bezier(.16,1,.3,1);
     box-shadow:0 0 0 2px rgba(239,68,68,.28), 0 16px 36px rgba(239,68,68,.18);
+}
+
+.room-pin-badge{
+    position:fixed;
+    top:18px;
+    right:18px;
+    z-index:1200;
+    display:none;
+    padding:12px 16px;
+    border-radius:18px;
+    border:1px solid rgba(255,255,255,.16);
+    background:rgba(8,21,33,.88);
+    box-shadow:0 18px 50px rgba(0,0,0,.34);
+    backdrop-filter:blur(18px);
+    font-weight:900;
+    letter-spacing:.04em;
+}
+
+@media (max-width: 768px){
+    .room-pin-badge{
+        top:10px;
+        right:10px;
+        left:10px;
+        text-align:center;
+    }
 }
 
 .scoreboard-shell{
@@ -934,8 +1199,113 @@ h1,h2,.question-card,.question{
 }
 
 @keyframes panelEnter{
-    from{opacity:0;transform:translate(-50%,-16px);}
-    to{opacity:1;transform:translate(-50%,0);}
+    from{opacity:0;transform:translateY(-16px);}
+    to{opacity:1;transform:translateY(0);}
+}
+
+#controlPanelWrapper{
+    max-width:960px;
+    margin:0 auto 28px;
+    transition:max-height .35s cubic-bezier(.22,1,.36,1), opacity .25s ease, margin .35s cubic-bezier(.22,1,.36,1);
+    max-height:2000px;
+    opacity:1;
+    overflow:hidden;
+}
+
+body.game-mode #controlPanelWrapper{
+    max-height:0;
+    opacity:0;
+    margin-bottom:0;
+}
+
+.team-mode-shell{
+    margin:18px 0 14px;
+    padding:18px;
+    border-radius:20px;
+    background:
+        linear-gradient(145deg, rgba(14,165,164,.10), rgba(34,197,94,.06)),
+        rgba(255,255,255,0.04);
+    border:1px solid rgba(150,197,230,.14);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
+}
+
+.team-mode-row{
+    display:flex;
+    gap:12px;
+    flex-wrap:wrap;
+    align-items:center;
+}
+
+.team-toggle{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-weight:800;
+    padding:10px 12px;
+    border-radius:14px;
+    background:rgba(9,42,62,.42);
+    border:1px solid rgba(150,197,230,.12);
+}
+
+.team-toggle input{
+    accent-color:#0ea5a4;
+    transform:scale(1.15);
+}
+
+.team-size-group{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-weight:800;
+    padding:10px 12px;
+    border-radius:14px;
+    background:rgba(9,42,62,.42);
+    border:1px solid rgba(150,197,230,.12);
+}
+
+.team-summary{
+    margin-top:12px;
+    color:var(--muted);
+    font-weight:700;
+    line-height:1.5;
+}
+
+.teams-board{
+    display:none;
+    margin-top:14px;
+}
+
+.draft-screen{
+    margin-top:24px;
+    padding:24px;
+    border-radius:24px;
+    background:
+        radial-gradient(circle at top right, rgba(14,165,164,.18), transparent 28%),
+        radial-gradient(circle at bottom left, rgba(34,197,94,.12), transparent 32%),
+        rgba(6,25,39,.72);
+    border:1px solid rgba(150,197,230,.16);
+    box-shadow:0 24px 70px rgba(2,13,23,.45);
+}
+
+.draft-kicker{
+    font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:.12em;
+    color:var(--muted);
+    font-weight:900;
+}
+
+.draft-title{
+    margin-top:8px;
+    font-size:clamp(26px,3vw,36px);
+    font-family:"Sora",sans-serif;
+    font-weight:900;
+}
+
+.draft-sub{
+    margin-top:8px;
+    color:var(--muted);
+    font-weight:700;
 }
 
 .panel{
@@ -1671,6 +2041,7 @@ button{
     <option value="Угадай персонажа с картинки">Угадай персонажа с картинки</option>
     <option value="Угадай персонажа по звуку">Угадай персонажа по звуку</option>
     <option value="Угадай персонажа по описанию">Угадай персонажа по описанию</option>
+    <option value="Угадай слово связанное с игрой">Угадай слово связанное с игрой</option>
 </select>
 <button class="primary" onclick="createRoom()">Создать</button>
 </div>
@@ -1680,10 +2051,33 @@ button{
 <div class="panel">
 <h2>Лобби</h2>
 <p class="panel-subtitle">Управляйте игроками и запускайте игру, когда все готовы.</p>
+<div id="teamControls" class="team-mode-shell">
+<div class="team-mode-row">
+    <label class="team-toggle">
+        <input type="checkbox" id="teamModeToggle" onchange="toggleTeamMode()">
+        Командный режим
+    </label>
+    <label class="team-size-group">
+        Игроков в команде
+        <select id="teamSizeSelect" onchange="setTeamSize()">
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+        </select>
+    </label>
+    <button class="primary" type="button" onclick="shuffleTeams()">Перемешать команды</button>
+</div>
+<div id="teamSummary" class="team-summary">Командный режим выключен</div>
+<div id="teamsBoard" class="teams-board"></div>
+</div>
 <div class="players" id="players"></div>
 <div class="lobby-actions">
-<button class="success" onclick="startGame()">Начать игру</button>
+<button class="success" id="startGameBtn" onclick="startGame()">Начать игру</button>
 <button class="danger" onclick="endGame()">Завершить тест</button>
+</div>
+<div class="fair-play-note">
+<strong>Важно</strong>
+Пожалуйста, отвечайте на вопросы честно. Если будете читерить, с вероятностью 90 процентов это заметят, поэтому не заходите в игру проверять, правильно ли вы думаете, и не гуглите варианты ответов.
 </div>
 </div>
 
@@ -1691,6 +2085,7 @@ button{
 </div>
 
 <div class="panel" id="gameSection" style="display:none;">
+<div class="room-pin-badge" id="roomPinBadge"></div>
 <div class="timer-wrapper">
     <div style="position:relative;">
         <svg class="timer-svg" width="160" height="160">
@@ -1720,6 +2115,10 @@ button{
         <button class="danger" type="button" id="audioStopBtn">Стоп</button>
     </div>
 </div>
+<div class="fair-play-note">
+<strong>Важно</strong>
+Пожалуйста, отвечайте на вопросы честно. Если будете читерить, с вероятностью 90 процентов это заметят, поэтому не заходите в игру проверять, правильно ли вы думаете, и не гуглите варианты ответов.
+</div>
 
 <div id="progress"></div>
 <div class="host-controls" id="hostControls">
@@ -1747,6 +2146,181 @@ let currentScoreboardData = null;
 let lastUsersAnswersMap = null;
 let lastQuestionText = "";
 let lastQuestionType = "";
+
+function updatePinBadge(){
+    const pinDisplay = document.getElementById("pinDisplay");
+    const pinBadge = document.getElementById("roomPinBadge");
+    if(pinDisplay){
+        pinDisplay.innerText = currentPin || "";
+    }
+    if(pinBadge){
+        if(currentPin){
+            pinBadge.style.display = "block";
+            pinBadge.innerText = `PIN: ${currentPin}`;
+        } else {
+            pinBadge.style.display = "none";
+            pinBadge.innerText = "";
+        }
+    }
+}
+let teamModeEnabled = false;
+let teamSize = 2;
+let currentTeams = [];
+let currentTeamLeaderboard = [];
+let hostDraftHideTimer = null;
+let hostWordleAttempts = [];
+let hostWordleDraft = "";
+let hostWordleKeyStates = {};
+let hostWordleAnimatedRow = -1;
+let hostWordleShakingRow = -1;
+let hostWordlePopIndex = -1;
+const WORDLE_KEYBOARD_ROWS = [
+    ["й","ц","у","к","е","н","г","ш","щ","з","х"],
+    ["ф","ы","в","а","п","р","о","л","д","ж","э"],
+    ["Enter","я","ч","с","м","и","т","ь","б","ю","⌫"],
+];
+
+function getWordlePointsForAttempt(attemptNumber){
+    return Math.max(0, 1100 - (Math.max(1, attemptNumber) * 100));
+}
+
+function renderWordleBoard(attempts, maxAttempts, wordLength, draft = "", finalized = false){
+    const safeAttempts = Array.isArray(attempts) ? attempts : [];
+    const rows = [];
+    const totalRows = Math.max(1, Number(maxAttempts) || 6);
+    const size = Math.max(1, Number(wordLength) || 1);
+    for(let i = 0; i < totalRows; i++){
+        const attempt = safeAttempts[i];
+        const letters = attempt && typeof attempt.guess === "string" ? attempt.guess.split("") : [];
+        const statuses = attempt && Array.isArray(attempt.statuses) ? attempt.statuses : [];
+        const isDraftRow = !finalized && !attempt && i === safeAttempts.length;
+        const draftLetters = isDraftRow ? String(draft || "").split("") : [];
+        const flipClass = attempt && i === hostWordleAnimatedRow ? " flip-row" : "";
+        const shakeClass = !attempt && i === hostWordleShakingRow ? " shake-row" : "";
+        let rowHtml = `<div class="wordle-row${flipClass}${shakeClass}" style="grid-template-columns:repeat(${size}, minmax(0, 1fr));">`;
+        for(let j = 0; j < size; j++){
+            const letter = letters[j] || draftLetters[j] || "";
+            const status = statuses[j] || "";
+            const activeClass = isDraftRow && !status ? " active" : "";
+            const popClass = isDraftRow && j === hostWordlePopIndex ? " pop-tile" : "";
+            rowHtml += `<div class="wordle-tile ${status}${activeClass}${popClass}" style="--tile-index:${j};">${letter}</div>`;
+        }
+        rowHtml += `</div>`;
+        rows.push(rowHtml);
+    }
+    return `<div class="wordle-board">${rows.join("")}</div>`;
+}
+
+function renderWordleKeyboard(){
+    return `
+        <div class="wordle-keyboard">
+            ${WORDLE_KEYBOARD_ROWS.map((row)=>`
+                <div class="wordle-keyboard-row">
+                    ${row.map((key)=>{
+                        const wide = key === "Enter" || key === "⌫" ? " wide" : "";
+                        const state = hostWordleKeyStates[String(key).toLowerCase()] || "";
+                        const action = key === "Enter"
+                            ? `hostWordleKeyPress('Enter')`
+                            : key === "⌫"
+                                ? `hostWordleKeyPress('Backspace')`
+                                : `hostWordleKeyPress('${key}')`;
+                        return `<button type="button" class="wordle-key${wide}${state ? " " + state : ""}" onclick="${action}">${key}</button>`;
+                    }).join("")}
+                </div>
+            `).join("")}
+        </div>
+    `;
+}
+
+function recomputeHostWordleKeyStates(){
+    const priority = { absent: 1, present: 2, correct: 3 };
+    const nextStates = {};
+    (Array.isArray(hostWordleAttempts) ? hostWordleAttempts : []).forEach((attempt)=>{
+        const guess = attempt && typeof attempt.guess === "string" ? attempt.guess.split("") : [];
+        const statuses = attempt && Array.isArray(attempt.statuses) ? attempt.statuses : [];
+        guess.forEach((letter, index)=>{
+            const key = String(letter || "").toLowerCase();
+            const status = statuses[index];
+            if(!key || !priority[status]) return;
+            if(!nextStates[key] || priority[status] > priority[nextStates[key]]){
+                nextStates[key] = status;
+            }
+        });
+    });
+    hostWordleKeyStates = nextStates;
+}
+
+function applyHostWordleKey(key){
+    const type = window.__currentQuestionType || "";
+    if(type !== "wordle") return;
+    const btn = document.getElementById("hostWordleSubmitBtn");
+    if(btn && btn.classList.contains("disabled")) return;
+    const maxLength = Number(window.__hostWordleLength || 0);
+    if(key === "Backspace"){
+        hostWordleDraft = hostWordleDraft.slice(0, -1);
+        refreshHostWordleBoard();
+        return;
+    }
+    if(key === "Enter"){
+        hostWordleAnswer();
+        return;
+    }
+    if(typeof key === "string" && key.length === 1 && /[a-zA-Zа-яА-ЯёЁ]/.test(key)){
+        if(hostWordleDraft.length >= maxLength) return;
+        hostWordleDraft += key;
+        hostWordlePopIndex = hostWordleDraft.length - 1;
+        refreshHostWordleBoard();
+        setTimeout(()=>{
+            hostWordlePopIndex = -1;
+            refreshHostWordleBoard(false);
+        }, 180);
+    }
+}
+
+function hostWordleKeyPress(key){
+    applyHostWordleKey(key);
+}
+
+function shakeHostWordleRow(){
+    hostWordleShakingRow = Array.isArray(hostWordleAttempts) ? hostWordleAttempts.length : 0;
+    refreshHostWordleBoard(false);
+    setTimeout(()=>{
+        hostWordleShakingRow = -1;
+        refreshHostWordleBoard(false);
+    }, 420);
+}
+
+function refreshHostWordleBoard(finalized = false){
+    const wrap = document.getElementById("hostWordleBoardWrap");
+    if(!wrap) return;
+    recomputeHostWordleKeyStates();
+    wrap.innerHTML = renderWordleBoard(
+        hostWordleAttempts,
+        window.__hostWordleAttemptsMax || 6,
+        window.__hostWordleLength || 1,
+        hostWordleDraft,
+        finalized
+    );
+    const keyboardWrap = document.getElementById("hostWordleKeyboardWrap");
+    if(keyboardWrap) keyboardWrap.innerHTML = renderWordleKeyboard();
+    const attemptEl = document.getElementById("hostWordleAttemptValue");
+    const pointsEl = document.getElementById("hostWordlePointsValue");
+    const usedAttempts = hostWordleAttempts.length || 0;
+    const shownAttempt = finalized ? Math.max(1, usedAttempts) : Math.min(usedAttempts + 1, Number(window.__hostWordleAttemptsMax || 6));
+    if(attemptEl) attemptEl.textContent = `${shownAttempt} / ${window.__hostWordleAttemptsMax || 6}`;
+    if(pointsEl) pointsEl.textContent = `${getWordlePointsForAttempt(shownAttempt)}`;
+}
+
+function handleHostWordleKeydown(event){
+    const type = window.__currentQuestionType || "";
+    if(type !== "wordle") return;
+    if(event.key === "Backspace" || event.key === "Enter" || (event.key.length === 1 && /[a-zA-Zа-яА-ЯёЁ]/.test(event.key))){
+        applyHostWordleKey(event.key);
+        event.preventDefault();
+    }
+}
+
+document.addEventListener("keydown", handleHostWordleKeydown);
 
 // store pending appeal requests (latest first)
 let pendingAppeals = [];
@@ -1814,6 +2388,202 @@ function syncHostControls(){
     }
 }
 
+function renderTeamsBoard(teams){
+    const board = document.getElementById("teamsBoard");
+    const summary = document.getElementById("teamSummary");
+    const toggle = document.getElementById("teamModeToggle");
+    const sizeSelect = document.getElementById("teamSizeSelect");
+    if(toggle) toggle.checked = !!teamModeEnabled;
+    if(sizeSelect) sizeSelect.value = String(teamSize || 2);
+    if(!board || !summary) return;
+
+    if(!teamModeEnabled){
+        board.style.display = "none";
+        board.innerHTML = "";
+        summary.textContent = "Командный режим выключен";
+        return;
+    }
+
+    const safeTeams = Array.isArray(teams) ? teams : [];
+    if(!safeTeams.length){
+        board.style.display = "none";
+        board.innerHTML = "";
+        summary.textContent = `Командный режим включен. Выберите размер команды (${teamSize}) и нажмите "Перемешать команды".`;
+        return;
+    }
+
+    summary.textContent = `Сформировано команд: ${safeTeams.length}. Игроков в команде: ${teamSize}.`;
+    board.style.display = "grid";
+    board.style.gridTemplateColumns = "repeat(auto-fit, minmax(220px, 1fr))";
+    board.style.gap = "12px";
+    board.innerHTML = safeTeams.map((team, index)=>`
+        <div class="fade-in" style="
+            padding:16px;
+            border-radius:18px;
+            background:
+                radial-gradient(circle at top right, color-mix(in srgb, ${team.color || "#14b8a6"} 26%, transparent), transparent 34%),
+                linear-gradient(145deg, color-mix(in srgb, ${team.color || "#14b8a6"} 18%, rgba(255,255,255,0.02)), rgba(255,255,255,0.03));
+            border:1px solid color-mix(in srgb, ${team.color || "#14b8a6"} 38%, transparent);
+            box-shadow:0 14px 34px color-mix(in srgb, ${team.color || "#14b8a6"} 12%, transparent);
+            animation-delay:${index * 0.08}s;
+        ">
+            <div style="font-size:18px;font-weight:800;margin-bottom:8px;display:flex;align-items:center;gap:10px;">
+                <span style="width:12px;height:12px;border-radius:999px;background:${team.color || "#14b8a6"};box-shadow:0 0 14px ${team.color || "#14b8a6"};"></span>
+                ${escapeHtml(team.name || `Команда ${team.id || index + 1}`)}
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+                ${(Array.isArray(team.members) ? team.members : []).map((member, memberIndex)=>`
+                    <div style="padding:10px 12px;border-radius:12px;background:rgba(255,255,255,0.08);transform:translateY(6px);animation:leaderboardCardIn .45s cubic-bezier(.16,1,.3,1) both;animation-delay:${(index * 0.08) + (memberIndex * 0.05)}s;">
+                        ${escapeHtml(member)}
+                    </div>
+                `).join("")}
+            </div>
+        </div>
+    `).join("");
+}
+
+function renderTeamLeaderboard(container, teamLeaderboard){
+    if(!container || !Array.isArray(teamLeaderboard) || !teamLeaderboard.length) return;
+    let html = `<div class="question-card fade-in" style="margin-top:22px;">🏳️ Командный рейтинг</div>`;
+    html += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:12px;">`;
+    html += teamLeaderboard.map((team, index)=>`
+        <div class="fade-in" style="
+            padding:16px;
+            border-radius:18px;
+            background:
+                radial-gradient(circle at top right, color-mix(in srgb, ${team.color || "#14b8a6"} 24%, transparent), transparent 34%),
+                linear-gradient(145deg, ${index === 0 ? "color-mix(in srgb, " + (team.color || "#14b8a6") + " 18%, rgba(34,197,94,0.06))" : "color-mix(in srgb, " + (team.color || "#14b8a6") + " 12%, rgba(255,255,255,0.03))"}, rgba(255,255,255,0.03));
+            border:1px solid color-mix(in srgb, ${team.color || "#14b8a6"} 24%, rgba(255,255,255,0.08));
+            box-shadow:0 14px 34px color-mix(in srgb, ${team.color || "#14b8a6"} 10%, transparent);
+            animation-delay:${index * 0.06}s;
+        ">
+            <div style="font-weight:800;font-size:18px;display:flex;align-items:center;gap:10px;">
+                <span style="width:12px;height:12px;border-radius:999px;background:${team.color || "#14b8a6"};box-shadow:0 0 14px ${team.color || "#14b8a6"};"></span>
+                ${index + 1}. ${escapeHtml(team.name || `Команда ${team.id || index + 1}`)}
+            </div>
+            <div style="margin-top:6px;font-size:24px;font-weight:900;">${Number(team.score || 0)} очков</div>
+            <div style="margin-top:8px;color:#cbd5e1;">${(Array.isArray(team.members) ? team.members : []).map(escapeHtml).join(" • ")}</div>
+        </div>
+    `).join("");
+    html += `</div>`;
+    container.insertAdjacentHTML("beforeend", html);
+}
+
+function hideTeamDraftScreenHost(){
+    if(hostDraftHideTimer){
+        clearTimeout(hostDraftHideTimer);
+        hostDraftHideTimer = null;
+    }
+    const gameSection = document.getElementById("gameSection");
+    const question = document.getElementById("question");
+    const progress = document.getElementById("progress");
+    const timerWrap = document.querySelector(".timer-wrapper");
+
+    if(question && question.querySelector("#hostDraftTeams")){
+        question.innerHTML = "";
+    }
+    if(progress){
+        progress.innerText = "";
+    }
+    if(timerWrap){
+        timerWrap.style.display = "flex";
+    }
+    if(gameSection){
+        gameSection.style.display = "none";
+    }
+    document.body.classList.remove("game-mode");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function showTeamDraftScreenHost(teams){
+    if(!Array.isArray(teams) || !teams.length) return;
+    const gameSection = document.getElementById("gameSection");
+    const question = document.getElementById("question");
+    if(!gameSection || !question) return;
+    gameSection.style.display = "block";
+    document.body.classList.add("game-mode");
+    const timerWrap = document.querySelector(".timer-wrapper");
+    if(timerWrap) timerWrap.style.display = "none";
+    const progress = document.getElementById("progress");
+    if(progress) progress.innerText = "";
+
+    const html = `
+        <div class="draft-screen fade-in">
+            <div class="draft-kicker">Командный режим</div>
+            <div class="draft-title">Жеребьёвка завершена</div>
+            <div class="draft-sub">Слоты перемешиваются, затем открываются итоговые составы команд.</div>
+            <div style="margin-top:14px;display:flex;justify-content:flex-end;">
+                <button type="button" class="primary" onclick="hideTeamDraftScreenHost()">Закрыть</button>
+            </div>
+            <div id="hostDraftShuffle" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:18px;"></div>
+            <div id="hostDraftTeams" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:18px;"></div>
+        </div>
+    `;
+    question.innerHTML = html;
+    const shuffleEl = document.getElementById("hostDraftShuffle");
+    const draftTeams = document.getElementById("hostDraftTeams");
+    if(!draftTeams || !shuffleEl) return;
+    const allMembers = teams.flatMap((team)=>Array.isArray(team.members) ? team.members : []);
+    shuffleEl.innerHTML = allMembers.map((member, index)=>`
+        <div class="fade-in" style="padding:12px 14px;border-radius:16px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.08);text-align:center;font-weight:800;animation:leaderboardCardIn .35s cubic-bezier(.16,1,.3,1) both;animation-delay:${index * 0.03}s;">
+            ${escapeHtml(member)}
+        </div>
+    `).join("");
+
+    setTimeout(()=>{
+        shuffleEl.innerHTML = "";
+        shuffleEl.style.display = "none";
+        draftTeams.innerHTML = teams.map((team, index)=>`
+            <div class="fade-in" style="
+                padding:18px;
+                border-radius:20px;
+                background:
+                    radial-gradient(circle at top right, color-mix(in srgb, ${team.color || "#14b8a6"} 28%, transparent), transparent 34%),
+                    linear-gradient(145deg, color-mix(in srgb, ${team.color || "#14b8a6"} 16%, rgba(255,255,255,0.03)), rgba(255,255,255,0.03));
+                border:1px solid color-mix(in srgb, ${team.color || "#14b8a6"} 36%, transparent);
+                box-shadow:0 18px 40px color-mix(in srgb, ${team.color || "#14b8a6"} 12%, transparent);
+                animation-delay:${index * 0.08}s;
+            ">
+                <div style="font-size:19px;font-weight:900;display:flex;align-items:center;gap:10px;">
+                    <span style="width:12px;height:12px;border-radius:999px;background:${team.color || "#14b8a6"};box-shadow:0 0 14px ${team.color || "#14b8a6"};"></span>
+                    ${escapeHtml(team.name || `Команда ${team.id || index + 1}`)}
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
+                    ${(Array.isArray(team.members) ? team.members : []).map((member, memberIndex)=>`
+                        <div style="padding:10px 12px;border-radius:12px;background:rgba(255,255,255,0.08);transform:translateY(8px);animation:leaderboardCardIn .45s cubic-bezier(.16,1,.3,1) both;animation-delay:${(index * 0.08) + (memberIndex * 0.05)}s;">
+                            ${escapeHtml(member)}
+                        </div>
+                    `).join("")}
+                </div>
+            </div>
+        `).join("");
+    }, 900);
+    if(hostDraftHideTimer){
+        clearTimeout(hostDraftHideTimer);
+    }
+    hostDraftHideTimer = setTimeout(()=>{
+        hideTeamDraftScreenHost();
+    }, 10000);
+    gameSection.scrollIntoView({behavior:"smooth", block:"start"});
+}
+
+function toggleTeamMode(){
+    const toggle = document.getElementById("teamModeToggle");
+    if(!socket || !toggle) return;
+    socket.send(JSON.stringify({type:"set_team_mode", enabled: !!toggle.checked}));
+}
+
+function setTeamSize(){
+    const select = document.getElementById("teamSizeSelect");
+    if(!socket || !select) return;
+    socket.send(JSON.stringify({type:"set_team_size", team_size: Number(select.value || 2)}));
+}
+
+function shuffleTeams(){
+    if(!socket) return;
+    socket.send(JSON.stringify({type:"shuffle_teams"}));
+}
+
 function renderScoreboardScreen(leaderboardData){
     const { scoreEl } = ensureHostScreens();
     if(!scoreEl) return;
@@ -1875,6 +2645,7 @@ function renderScoreboardScreen(leaderboardData){
     scoreHtml += "</div>";
 
     scoreEl.innerHTML = scoreHtml;
+    renderTeamLeaderboard(scoreEl, currentTeamLeaderboard);
     applyTopPlaceStyles(scoreEl);
     showScoreScreen();
 
@@ -2010,7 +2781,8 @@ function registerAppeal(payload){
     const appeal = {
         ...payload,
         local_id: ++appealSeq,
-        resolved: false
+        resolved: false,
+        resolution: "new"
     };
     pendingAppeals.unshift(appeal);
     if(pendingAppeals.length > 50) pendingAppeals.length = 50;
@@ -2018,11 +2790,57 @@ function registerAppeal(payload){
     return appeal;
 }
 
-function markAppealResolved(localId){
+function rerenderAppealQueueIfOpen(){
+    const backdrop = document.getElementById("appealQueueBackdrop");
+    if(!backdrop) return;
+    openAppealQueue();
+    openAppealQueue();
+}
+
+function resolvePendingAppeal(payload){
+    const appealId = Number(payload?.appeal_id);
+    let item = null;
+
+    if(Number.isFinite(appealId)){
+        item = pendingAppeals.find((appeal)=>Number(appeal.appeal_id) === appealId) || null;
+    }
+
+    if(!item){
+        item = removePendingAppeal(payload?.username, Number(payload?.question_index));
+    } else {
+        item.resolved = true;
+        item.resolution = payload?.resolution || "resolved";
+        updateAppealQueueButton();
+    }
+
+    rerenderAppealQueueIfOpen();
+    return item;
+}
+
+function removePendingAppeal(username, questionIndex){
+    if(!username) return null;
+
+    const hasQuestionIndex = Number.isFinite(questionIndex);
+    const index = pendingAppeals.findIndex((item)=>{
+        if(item.resolved) return false;
+        if(item.username !== username) return false;
+        if(!hasQuestionIndex) return true;
+        return Number(item.question_index) === Number(questionIndex);
+    });
+
+    if(index === -1) return null;
+
+    const [removed] = pendingAppeals.splice(index, 1);
+    updateAppealQueueButton();
+    return removed || null;
+}
+
+function markAppealResolved(localId, resolution){
     if(!localId) return;
     const item = pendingAppeals.find((appeal)=>appeal.local_id === localId);
     if(!item) return;
     item.resolved = true;
+    item.resolution = resolution || "closed";
     updateAppealQueueButton();
 }
 
@@ -2035,6 +2853,7 @@ function escapeHtml(str){
         .replaceAll('"',"&quot;")
         .replaceAll("'","&#039;");
 }
+
 
 function focusPlayerAnswerRow(username, answerText, reasonText){
     // Try to find the row in the "Кто как ответил" section.
@@ -2129,7 +2948,7 @@ function openAppealModal(payload, opts){
             e.preventDefault();
             const pts = getCorrectPoints();
             sendAppeal(username, pts, `апелляция: засчитать как правильный • ${baseReason}`);
-            markAppealResolved(payload?.local_id);
+            markAppealResolved(payload?.local_id, "approved");
             showAppealToast(`Апелляция: ${username} +${pts} очков`);
             close();
         });
@@ -2140,7 +2959,7 @@ function openAppealModal(payload, opts){
             e.preventDefault();
             const pts = Math.abs(getCorrectPoints());
             sendAppeal(username, -pts, `апелляция: снять правильный • ${baseReason}`);
-            markAppealResolved(payload?.local_id);
+            markAppealResolved(payload?.local_id, "approved");
             showAppealToast(`Апелляция: ${username} -${pts} очков`);
             close();
         });
@@ -2152,7 +2971,7 @@ function openAppealModal(payload, opts){
             const v = Number(customInput?.value);
             if(!Number.isFinite(v) || v === 0) return;
             sendAppeal(username, Math.trunc(v), `апелляция: ручная • ${baseReason}`);
-            markAppealResolved(payload?.local_id);
+            markAppealResolved(payload?.local_id, "approved");
             const sign = v > 0 ? "+" : "";
             showAppealToast(`Апелляция: ${username} ${sign}${Math.trunc(v)} очков`);
             if(customInput) customInput.value = "";
@@ -2163,7 +2982,10 @@ function openAppealModal(payload, opts){
 
 function openAppealQueue(){
     const prev = document.getElementById("appealQueueBackdrop");
-    if(prev) prev.remove();
+    if(prev){
+        prev.remove();
+        return;
+    }
 
     const backdrop = document.createElement("div");
     backdrop.id = "appealQueueBackdrop";
@@ -2216,6 +3038,16 @@ function openAppealQueue(){
                 item.question
             ].map((part)=>String(part || "").toLowerCase()).join(" ");
             return haystack.includes(search);
+        }).sort((a, b)=>{
+            const rank = (item)=>{
+                if(item.resolution === "new" || !item.resolved) return 0;
+                if(item.resolution === "approved") return 1;
+                if(item.resolution === "rejected") return 2;
+                return 3;
+            };
+            const diff = rank(a) - rank(b);
+            if(diff !== 0) return diff;
+            return Number(b.local_id || 0) - Number(a.local_id || 0);
         });
 
         if(!rows.length){
@@ -2226,12 +3058,31 @@ function openAppealQueue(){
         listEl.innerHTML = rows.map((item)=>{
             const safeAnswer = String(item.answer ?? "").trim() || "—";
             const safeReason = String(item.reason ?? "").trim() || "без комментария";
-            const status = item.resolved ? "Обработано" : "Новое";
+            const status = item.resolution === "approved"
+                ? "Одобрена"
+                : item.resolution === "rejected"
+                    ? "Отклонена"
+                    : "Новая";
+            const statusBg = item.resolution === "approved"
+                ? "rgba(34,197,94,0.18)"
+                : item.resolution === "rejected"
+                    ? "rgba(239,68,68,0.16)"
+                    : "rgba(14,165,164,0.18)";
+            const statusBorder = item.resolution === "approved"
+                ? "rgba(34,197,94,0.3)"
+                : item.resolution === "rejected"
+                    ? "rgba(239,68,68,0.26)"
+                    : "rgba(14,165,164,0.28)";
+            const statusColor = item.resolution === "approved"
+                ? "#86efac"
+                : item.resolution === "rejected"
+                    ? "#fca5a5"
+                    : "#99f6e4";
             return `
                 <div class="appeal-queue-row ${item.resolved ? "resolved" : ""}" data-appeal-id="${item.local_id}">
                     <div class="appeal-queue-row-header">
                         <span>${escapeHtml(item.username || "Игрок")}</span>
-                        <span>${status}</span>
+                        <span style="padding:6px 10px;border-radius:999px;background:${statusBg};border:1px solid ${statusBorder};color:${statusColor};font-size:12px;font-weight:900;letter-spacing:.04em;text-transform:uppercase;">${status}</span>
                     </div>
                     <div class="appeal-queue-row-meta">
                         <div><b>Ответ:</b> ${escapeHtml(safeAnswer)}</div>
@@ -2242,6 +3093,7 @@ function openAppealQueue(){
                         <button type="button" class="primary" data-action="open">Открыть</button>
                         <button type="button" class="appeal-btn plus" data-action="grant">+Очки</button>
                         <button type="button" class="appeal-btn minus" data-action="deduct">-Очки</button>
+                        <button type="button" class="appeal-btn secondary" data-action="dismiss">Закрыть</button>
                     </div>
                 </div>
             `;
@@ -2259,14 +3111,19 @@ function openAppealQueue(){
                 const pts = Number(window.__appealCorrectPoints);
                 const amount = (Number.isFinite(pts) && pts > 0) ? Math.trunc(pts) : 1000;
                 sendAppeal(item.username, amount, "апелляция: быстрое начисление");
-                markAppealResolved(localId);
+                markAppealResolved(localId, "approved");
                 render();
             });
             row.querySelector('[data-action="deduct"]')?.addEventListener("click", ()=>{
                 const pts = Number(window.__appealCorrectPoints);
                 const amount = (Number.isFinite(pts) && pts > 0) ? Math.trunc(pts) : 1000;
                 sendAppeal(item.username, -Math.abs(amount), "апелляция: быстрое снятие");
-                markAppealResolved(localId);
+                markAppealResolved(localId, "approved");
+                render();
+            });
+            row.querySelector('[data-action="dismiss"]')?.addEventListener("click", ()=>{
+                markAppealResolved(localId, "rejected");
+                showAppealToast(`Апелляция закрыта: ${item.username}`);
                 render();
             });
         });
@@ -2572,11 +3429,16 @@ async function createRoom(){
     document.getElementById("question").innerHTML = "";
     document.getElementById("progress").innerText = "";
     document.getElementById("gameSection").style.display = "none";
-    document.getElementById("pinDisplay").innerText = "";
+    teamModeEnabled = false;
+    teamSize = 2;
+    currentTeams = [];
+    currentTeamLeaderboard = [];
+    renderTeamsBoard([]);
 
     socket = null;
     playerSocket = null;
     currentPin = "";
+    updatePinBadge();
 
     if(!data.pin){
         alert("Ошибка создания комнаты");
@@ -2584,7 +3446,7 @@ async function createRoom(){
     }
 
     currentPin = data.pin;
-    document.getElementById("pinDisplay").innerText = currentPin;
+    updatePinBadge();
 
     const protocol = location.protocol === "https:" ? "wss" : "ws";
     socket = new WebSocket(`${protocol}://${location.host}/ws/host/${currentPin}/host`);
@@ -2599,17 +3461,47 @@ async function createRoom(){
         if(data.type === "error"){
             alert(data.message);
         }
+        if(data.type === "wordle_feedback"){
+            hostWordleAttempts = Array.isArray(data.attempts) ? data.attempts : [];
+            if(data.invalid){
+                shakeHostWordleRow();
+                refreshHostWordleBoard(false);
+                alert(data.message || "Нужно существующее слово");
+                return;
+            }
+            hostWordleDraft = "";
+            hostWordlePopIndex = -1;
+            hostWordleAnimatedRow = hostWordleAttempts.length - 1;
+            refreshHostWordleBoard(!!data.finalized);
+            setTimeout(()=>{
+                hostWordleAnimatedRow = -1;
+                refreshHostWordleBoard(!!data.finalized);
+            }, 900);
+            const btn = document.getElementById("hostWordleSubmitBtn");
+            if(btn && data.finalized){
+                btn.classList.add("disabled");
+                btn.style.opacity = "0.6";
+            }
+        }
     };
 
     socket.onmessage = (event)=>{
         const data = JSON.parse(event.data);
         if(!data || typeof data !== "object") return;
 
+        if(data.type === "error"){
+            alert(data.message || "Ошибка");
+            return;
+        }
+
         // 🔹 Appeal applied (host manual score adjust)
         if(data.type === "appeal_awarded"){
             if(data.username && typeof data.delta === "number"){
                 const sign = data.delta > 0 ? "+" : "";
                 showAppealToast(`Апелляция: ${data.username} ${sign}${data.delta} очков`);
+            }
+            if(Array.isArray(data.team_leaderboard)){
+                currentTeamLeaderboard = data.team_leaderboard;
             }
             if(Array.isArray(data.leaderboard)){
                 applyLeaderboardUpdate(data.leaderboard);
@@ -2619,10 +3511,10 @@ async function createRoom(){
 
         if(data.type === "player_connection"){
             if(data.username){
-                if(data.status === "disconnected"){
-                    showAppealToast(`Игрок отключился: ${data.username}`);
-                } else if(data.status === "reconnected"){
-                    showAppealToast(`Игрок вернулся: ${data.username}`);
+                if(data.status === "offline" || data.status === "disconnected"){
+                    showAppealToast(`Игрок offline: ${data.username}`);
+                } else if(data.status === "online" || data.status === "reconnected"){
+                    showAppealToast(`Игрок online: ${data.username}`);
                 }
             }
             return;
@@ -2631,15 +3523,26 @@ async function createRoom(){
         // 🔹 Appeal request from player (needs host review)
         if(data.type === "appeal_request"){
             const payload = registerAppeal({
+                appeal_id: data.appeal_id,
                 username: data.username || data.player || data.name || "Игрок",
                 answer: data.answer,
                 reason: data.reason,
                 question: data.question,
                 question_type: data.question_type,
+                question_index: data.question_index,
                 reveal_id: data.reveal_id
             });
 
             showAppealRequestToast(payload);
+            return;
+        }
+
+        if(data.type === "appeal_resolved"){
+            const resolved = resolvePendingAppeal(data);
+            if(resolved && data.username){
+                const resolutionText = data.resolution === "approved" ? "одобрена" : "отклонена";
+                showAppealToast(`Апелляция ${resolutionText}: ${data.username}`);
+            }
             return;
         }
 
@@ -2670,18 +3573,28 @@ async function createRoom(){
 
         // 🔹 Обновление списка игроков
         if(data.type==="players_update"){
+            teamModeEnabled = !!data.team_mode;
+            teamSize = Number(data.team_size || 2);
+            currentTeams = Array.isArray(data.teams) ? data.teams : [];
             const playersDiv = document.getElementById("players");
             playersDiv.innerHTML="";
-            data.players.forEach(p=>{
+            data.players.forEach(player=>{
+                const username = typeof player === "string" ? player : (player.username || "Игрок");
+                const connected = typeof player === "string" ? true : !!player.connected;
+                const lateJoiner = typeof player === "string" ? false : !!player.late_joiner;
+                const statusClass = connected ? "success" : "danger";
+                const statusLabel = connected ? "online" : "offline";
                 playersDiv.innerHTML += `
                     <span>
-                        ${p}
-                        <button class="danger" onclick="kickPlayer('${p}')">✖</button>
+                        ${username}
+                        <span class="${statusClass}" style="margin-left:8px; padding:4px 8px; border-radius:999px; font-size:12px;">${statusLabel}</span>
+                        ${lateJoiner ? `<span class="warning" style="margin-left:8px; padding:4px 8px; border-radius:999px; font-size:12px; display:inline-block;">joined late</span>` : ""}
+                        <button class="danger" onclick="kickPlayer('${username}')">✖</button>
                     </span>
                 `;
             });
 
-            const startBtn = document.querySelector(".success");
+            const startBtn = document.getElementById("startGameBtn");
             if(data.players.length === 0){
                 startBtn.disabled = true;
                 startBtn.style.opacity = "0.5";
@@ -2689,10 +3602,30 @@ async function createRoom(){
                 startBtn.disabled = false;
                 startBtn.style.opacity = "1";
             }
+            renderTeamsBoard(currentTeams);
+        }
+
+        if(data.type==="team_assignment"){
+            teamModeEnabled = !!data.enabled;
+            teamSize = Number(data.team_size || 2);
+            currentTeams = Array.isArray(data.teams) ? data.teams : [];
+            currentTeamLeaderboard = Array.isArray(data.team_leaderboard) ? data.team_leaderboard : [];
+            renderTeamsBoard(currentTeams);
+            if(teamModeEnabled && currentTeams.length){
+                showTeamDraftScreenHost(currentTeams);
+            }
+            return;
         }
 
         // 🔹 Новый вопрос
         if(data.type==="question"){
+            if(hostDraftHideTimer){
+                clearTimeout(hostDraftHideTimer);
+                hostDraftHideTimer = null;
+            }
+            if(Array.isArray(data.team_leaderboard)){
+                currentTeamLeaderboard = data.team_leaderboard;
+            }
             nextLocked = false;
             pendingScoreboardData = null;
             currentScoreboardData = null;
@@ -2731,6 +3664,15 @@ async function createRoom(){
             const hasImage = data.image && data.image !== null;
 
             const type = data.question_type || "mcq";
+            window.__currentQuestionType = type;
+            hostWordleAttempts = [];
+            hostWordleDraft = "";
+            hostWordleKeyStates = {};
+            hostWordleAnimatedRow = -1;
+            hostWordleShakingRow = -1;
+            hostWordlePopIndex = -1;
+            window.__hostWordleLength = Number(data.word_length || 0);
+            window.__hostWordleAttemptsMax = Number(data.max_attempts || 6);
             // Remember current question points for automated appeal buttons
             window.__currentQuestionPoints = Number(data.points);
             if(!Number.isFinite(window.__currentQuestionPoints) || window.__currentQuestionPoints <= 0){
@@ -2742,7 +3684,9 @@ async function createRoom(){
             if(data.prompt){
                 questionHTML += `<div class="audio-note" style="margin-top:14px;font-size:22px;line-height:1.6;">${data.prompt}</div>`;
             }
-            questionHTML += `<div class="audio-note">⚠️ Важно: <b>пишите полное название чемпиона</b> (без сокращений вроде «бастик», «симба» и т.п.). Я стараюсь распознавать сокращения, но не все варианты получится предугадать — чтобы не было обидных проигрышей и претензий.</div>`;
+            if(type === "wordle"){
+                questionHTML += `<div class="audio-note" style="font-size:18px;line-height:1.65;">⚠️ Важно: после каждой попытки цвет букв подскажет результат. Зелёный — буква на своём месте. Жёлтый — буква есть в слове, но стоит не там. Красный — такой буквы в слове нет. Ваша задача — собрать слово целиком за доступные попытки. Для удобства внизу есть клавиатура.</div>`;
+            }
             if(hasImage){
                 const zoom = data.image_zoom || 3;
                 const position = data.image_position || "50% 50%";
@@ -2854,6 +3798,33 @@ async function createRoom(){
                 `;
             }
 
+            if(type === "wordle"){
+                container.innerHTML += `
+                    <div class="wordle-shell">
+                        <div class="wordle-status">
+                            <div class="wordle-stat">
+                                <div class="wordle-stat-label">Длина слова</div>
+                                <div class="wordle-stat-value">${data.word_length || 0}</div>
+                            </div>
+                            <div class="wordle-stat">
+                                <div class="wordle-stat-label">Попытка</div>
+                                <div class="wordle-stat-value" id="hostWordleAttemptValue">1 / ${data.max_attempts || 6}</div>
+                            </div>
+                            <div class="wordle-stat">
+                                <div class="wordle-stat-label">Очки за строку</div>
+                                <div class="wordle-stat-value" id="hostWordlePointsValue">${getWordlePointsForAttempt(1)}</div>
+                            </div>
+                        </div>
+                        <div id="hostWordleBoardWrap">${renderWordleBoard([], data.max_attempts || 6, data.word_length || 1, "")}</div>
+                        <div id="hostWordleKeyboardWrap">${renderWordleKeyboard()}</div>
+                        <div style="margin-top:16px;font-size:15px;opacity:.82;">Нужно ввести слово по подсказке. После проверки цвет букв показывает, есть ли буква в слове и находится ли она на правильной позиции.</div>
+                        <button id="hostWordleSubmitBtn" onclick="hostWordleAnswer()"
+                            style="margin-top:20px;">Проверить слово</button>
+                    </div>
+                `;
+            }
+
+
             startTimer(data.time);
         }
 
@@ -2900,6 +3871,10 @@ async function createRoom(){
             // prepare scoreboard data for the reveal/leaderboard actions
             pendingScoreboardData = Array.isArray(data.leaderboard) ? data.leaderboard : null;
             currentScoreboardData = Array.isArray(data.leaderboard) ? data.leaderboard : null;
+            currentTeamLeaderboard = Array.isArray(data.team_leaderboard) ? data.team_leaderboard : [];
+            window.__currentRevealQuestionIndex = Number.isFinite(Number(data.question_index))
+                ? Math.trunc(Number(data.question_index))
+                : null;
             const nextBtn = document.getElementById("nextBtn");
             if(nextBtn){
                 nextBtn.style.display = "none";
@@ -2929,7 +3904,9 @@ async function createRoom(){
             if(data.prompt){
                 revealHeaderHTML += `<div class="audio-note" style="margin-top:14px;font-size:22px;line-height:1.6;">${data.prompt}</div>`;
             }
-            revealHeaderHTML += `<div class="audio-note">⚠️ Важно: <b>пишите полное название чемпиона</b> (без сокращений вроде «бастик», «симба» и т.п.). Я стараюсь распознавать сокращения, но не все варианты получится предугадать — чтобы не было обидных проигрышей и претензий.</div>`;
+            if(type === "wordle"){
+                revealHeaderHTML += `<div class="audio-note" style="font-size:18px;line-height:1.65;">⚠️ Важно: после каждой попытки цвет букв подскажет результат. Зелёный — буква на своём месте. Жёлтый — буква есть в слове, но стоит не там. Красный — такой буквы в слове нет. Ваша задача — собрать слово целиком за доступные попытки. Для удобства внизу есть клавиатура.</div>`;
+            }
             if(revealEl) revealEl.innerHTML = revealHeaderHTML;
             showRevealScreen();
             setQuestionAudio(data.audio);
@@ -3008,6 +3985,16 @@ async function createRoom(){
                 revealContainer.appendChild(correctBlock);
             }
 
+            if(type === "wordle"){
+                const correctBlock = document.createElement("div");
+                correctBlock.style.fontSize = "22px";
+                correctBlock.style.fontWeight = "900";
+                correctBlock.style.marginTop = "20px";
+                correctBlock.innerText = "Правильный ответ: " + data.correct;
+                revealContainer.appendChild(correctBlock);
+            }
+
+
             const usersAnswersMap = (data.users_answers && typeof data.users_answers === "object")
                 ? data.users_answers
                 : null;
@@ -3045,10 +4032,13 @@ async function createRoom(){
                 } else {
                     const buckets = {};
                     Object.values(usersAnswersMap).forEach((rawValue)=>{
-                        const normalized =
-                            rawValue === null || rawValue === undefined || rawValue === ""
-                                ? "—"
-                                : rawValue.toString();
+                        let normalized = "—";
+                        if(type === "wordle" && Array.isArray(rawValue)){
+                            const lastAttempt = rawValue[rawValue.length - 1];
+                            normalized = lastAttempt && lastAttempt.guess ? `${lastAttempt.guess} (${rawValue.length})` : "—";
+                        } else if(!(rawValue === null || rawValue === undefined || rawValue === "")){
+                            normalized = rawValue.toString();
+                        }
                         buckets[normalized] = (buckets[normalized] || 0) + 1;
                     });
 
@@ -3146,6 +4136,9 @@ async function createRoom(){
                         } else {
                             answerText = data.answers[answerValue];
                         }
+                    } else if(type === "wordle"){
+                        const attempts = Array.isArray(answerValue) ? answerValue : [];
+                        answerText = attempts.map((attempt)=>attempt && attempt.guess ? attempt.guess.toString() : "").filter(Boolean).join(" -> ");
                     } else {
                         answerText = (answerValue === null || answerValue === undefined || answerValue === "")
                             ? "—"
@@ -3160,6 +4153,18 @@ async function createRoom(){
                         <span>${user}</span>
                         <span style="text-align:right;">${answerText}</span>
                     `;
+
+                    if(type === "wordle" && Array.isArray(answerValue) && answerValue.length){
+                        const board = document.createElement("div");
+                        board.style.width = "100%";
+                        board.style.marginTop = "12px";
+                        board.innerHTML = renderWordleBoard(
+                            answerValue,
+                            data.max_attempts || answerValue.length,
+                            data.word_length || String(data.correct || "").length || 1
+                        );
+                        row.appendChild(board);
+                    }
 
                     // mark row for quick focusing from appeal toast
                     row.setAttribute("data-player-row", user);
@@ -3176,6 +4181,7 @@ async function createRoom(){
                         b.addEventListener("click", (e)=>{
                             e.preventDefault();
                             e.stopPropagation();
+                            removePendingAppeal(user, window.__currentRevealQuestionIndex);
                             sendAppeal(user, delta, `апелляция (±${Math.abs(delta)})`);
                         });
                         return b;
@@ -3365,6 +4371,9 @@ async function createRoom(){
 
         // 🔹 LIVE LEADERBOARD (DISABLED AUTO SWITCH — MANUAL ONLY)
         if(data.type==="leaderboard"){
+            if(Array.isArray(data.team_leaderboard)){
+                currentTeamLeaderboard = data.team_leaderboard;
+            }
             // Prevent automatic screen switch.
             // Leaderboard will now only be shown via manual ENTER handler
             // inside reveal block.
@@ -3372,6 +4381,12 @@ async function createRoom(){
         }
 
 if(data.type==="game_over" || data.type==="finished"){
+    if(hostDraftHideTimer){
+        clearTimeout(hostDraftHideTimer);
+        hostDraftHideTimer = null;
+    }
+
+    currentTeamLeaderboard = Array.isArray(data.team_leaderboard) ? data.team_leaderboard : currentTeamLeaderboard;
 
     timerPaused = false;
     timerEndTime = null;
@@ -3461,6 +4476,17 @@ if(data.type==="game_over" || data.type==="finished"){
         }
     }
 
+    if(Array.isArray(currentTeamLeaderboard) && currentTeamLeaderboard.length){
+        html += `<div style="margin-top:28px;">`;
+        html += currentTeamLeaderboard.map((team, index)=>`
+            <div class="mini-leaderboard-row row-shine leaderboard-enter" data-stagger="${Math.min(index+1,5)}" style="margin:10px 0;padding:18px 22px;border-radius:18px;background:${index === 0 ? "rgba(34,197,94,0.18)" : "rgba(255,255,255,0.08)"};">
+                <span>🏳️ ${index+1}. ${escapeHtml(team.name || `Команда ${team.id || index + 1}`)}</span>
+                <span class="rank-meta">${Number(team.score || 0)} очков</span>
+            </div>
+        `).join("");
+        html += `</div>`;
+    }
+
     html += `
         <div style="text-align:center;margin-top:40px;">
             <button class="primary" onclick="openExportReport()">Открыть итоговый отчёт</button>
@@ -3505,7 +4531,7 @@ if(data.type==="game_over" || data.type==="finished"){
             document.getElementById("gameSection").style.display = "none";
 
             // Очистка PIN и списка игроков
-            document.getElementById("pinDisplay").innerText = "";
+            updatePinBadge();
             document.getElementById("players").innerHTML = "";
 
             // Сброс внутренних состояний
@@ -3515,6 +4541,11 @@ if(data.type==="game_over" || data.type==="finished"){
             timerPaused = false;
             timerEndTime = null;
             timerRemainingSeconds = 0;
+            teamModeEnabled = false;
+            teamSize = 2;
+            currentTeams = [];
+            currentTeamLeaderboard = [];
+            renderTeamsBoard([]);
             syncHostControls();
 
             // Прокрутка вверх к панели
@@ -3538,6 +4569,10 @@ function startGame(){
     const playersCount = document.getElementById("players").children.length;
     if(playersCount === 0){
         alert("В лобби нет игроков");
+        return;
+    }
+    if(teamModeEnabled && (!Array.isArray(currentTeams) || !currentTeams.length)){
+        alert("Сначала перемешайте команды");
         return;
     }
 
@@ -3647,7 +4682,9 @@ function kickPlayer(username){
 }
 
 function hostNumericAnswer(){
-    const value = document.getElementById("hostNumericInput").value;
+    const input = document.getElementById("hostNumericInput");
+    if(!input) return;
+    const value = input.value;
     if(!value) return;
 
     if(playerSocket && playerSocket.readyState === WebSocket.OPEN){
@@ -3659,11 +4696,18 @@ function hostNumericAnswer(){
 
     hostAnswerIndex = 0; // фикс для wrong animation
 
-    document.getElementById("hostNumericInput").disabled = true;
+    input.disabled = true;
+    const btn = input.nextElementSibling;
+    if(btn){
+        btn.classList.add("disabled");
+        btn.style.opacity = "0.6";
+    }
 }
 
 function hostTextAnswer(){
-    const value = document.getElementById("hostTextInput").value.trim();
+    const input = document.getElementById("hostTextInput");
+    if(!input) return;
+    const value = input.value.trim();
     if(!value) return;
 
     if(playerSocket && playerSocket.readyState === WebSocket.OPEN){
@@ -3675,8 +4719,36 @@ function hostTextAnswer(){
 
     hostAnswerIndex = 0; // фикс для wrong animation
 
-    document.getElementById("hostTextInput").disabled = true;
+    input.disabled = true;
+    const btn = input.nextElementSibling;
+    if(btn){
+        btn.classList.add("disabled");
+        btn.style.opacity = "0.6";
+    }
 }
+
+function hostWordleAnswer(){
+    const value = hostWordleDraft.trim();
+    const expectedLength = Number(window.__hostWordleLength || 0);
+    if(!value) return;
+    if(expectedLength > 0 && value.length !== expectedLength){
+        shakeHostWordleRow();
+        alert(`Нужно слово из ${expectedLength} букв`);
+        return;
+    }
+
+    if(playerSocket && playerSocket.readyState === WebSocket.OPEN){
+        playerSocket.send(JSON.stringify({
+            type:"answer",
+            value:value
+        }));
+        hostWordleDraft = "";
+        refreshHostWordleBoard();
+    }
+
+    hostAnswerIndex = 0;
+}
+
 function endGame(){
     if(!socket || socket.readyState !== WebSocket.OPEN) return;
 
@@ -3708,10 +4780,15 @@ function resetHost(){
     timerPaused = false;
     timerEndTime = null;
     timerRemainingSeconds = 0;
+    teamModeEnabled = false;
+    teamSize = 2;
+    currentTeams = [];
+    currentTeamLeaderboard = [];
 
     // очищаем интерфейс
-    document.getElementById("pinDisplay").innerText = "";
+    updatePinBadge();
     document.getElementById("players").innerHTML = "";
+    renderTeamsBoard([]);
     document.getElementById("question").innerHTML = "";
     document.getElementById("progress").innerText = "";
     document.getElementById("gameSection").style.display = "none";

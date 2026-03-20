@@ -1,0 +1,981 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin Control</title>
+<style>
+:root{
+    --bg:#08131e;
+    --panel:#102536;
+    --panel-soft:rgba(255,255,255,.05);
+    --line:rgba(148,163,184,.16);
+    --text:#e6f7ff;
+    --muted:#9bb5c8;
+    --accent:#14b8a6;
+    --warn:#f97316;
+    --danger:#ef4444;
+    --good:#22c55e;
+}
+*{box-sizing:border-box}
+body{
+    margin:0;
+    font-family:"DM Sans",system-ui,sans-serif;
+    color:var(--text);
+    background:
+        radial-gradient(1000px 700px at 0% 0%, rgba(20,184,166,.18), transparent 44%),
+        radial-gradient(900px 620px at 100% 0%, rgba(249,115,22,.10), transparent 38%),
+        linear-gradient(180deg,#07111a,#091826 58%,#08131e);
+}
+.wrap{max-width:1680px;margin:0 auto;padding:16px}
+.hero{display:flex;justify-content:space-between;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.title{font-size:28px;font-weight:900}
+.sub{color:var(--muted);font-weight:700}
+.status{display:inline-flex;align-items:center;gap:8px;padding:9px 13px;border-radius:999px;background:rgba(20,184,166,.14);font-weight:900}
+.dot{width:10px;height:10px;border-radius:999px;background:var(--good);box-shadow:0 0 16px var(--good)}
+.layout{display:grid;grid-template-columns:320px minmax(0,1fr) 380px;gap:12px}
+.panel{
+    background:linear-gradient(180deg, rgba(13,33,49,.94), rgba(8,22,34,.96));
+    border:1px solid var(--line);
+    border-radius:24px;
+    padding:12px;
+    box-shadow:0 26px 70px rgba(0,0,0,.34);
+}
+.panel h2{margin:0 0 10px;font-size:16px}
+.stack{display:grid;gap:8px}
+.room-list,.player-list,.appeal-list,.log-list{display:grid;gap:8px;max-height:72vh;overflow:auto}
+.card{
+    background:var(--panel-soft);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:10px 12px;
+}
+.card.active{border-color:rgba(20,184,166,.46);box-shadow:0 0 0 1px rgba(20,184,166,.2)}
+.risk-low{border-color:rgba(34,197,94,.28)}
+.risk-medium{border-color:rgba(249,115,22,.34); box-shadow:0 0 0 1px rgba(249,115,22,.14)}
+.risk-high{border-color:rgba(239,68,68,.42); box-shadow:0 0 0 1px rgba(239,68,68,.18)}
+.row{display:flex;justify-content:space-between;gap:12px;align-items:center}
+.meta{color:var(--muted);font-size:12px;line-height:1.35}
+.mono{font-family:ui-monospace,SFMono-Regular,monospace}
+input,select,button,textarea{
+    width:100%;
+    border-radius:12px;
+    border:1px solid rgba(148,163,184,.24);
+    background:rgba(255,255,255,.05);
+    color:var(--text);
+    padding:9px 11px;
+    font:inherit;
+}
+textarea{min-height:72px;resize:vertical}
+button{
+    cursor:pointer;
+    border:0;
+    font-weight:900;
+    background:linear-gradient(135deg,#0f766e,#14b8a6);
+}
+button.warn{background:linear-gradient(135deg,#c2410c,#f97316)}
+button.danger{background:linear-gradient(135deg,#b91c1c,#ef4444)}
+button.ghost{background:rgba(255,255,255,.08);border:1px solid rgba(148,163,184,.22)}
+.actions2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap}
+.toolbar button{width:auto}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;background:rgba(255,255,255,.08);font-size:12px;font-weight:900}
+.pill.good{background:rgba(34,197,94,.15);color:#86efac}
+.pill.warn{background:rgba(249,115,22,.16);color:#fdba74}
+.pill.bad{background:rgba(239,68,68,.16);color:#fca5a5}
+.pill.risk-low{background:rgba(34,197,94,.15);color:#86efac}
+.pill.risk-medium{background:rgba(249,115,22,.18);color:#fdba74}
+.pill.risk-high{background:rgba(239,68,68,.18);color:#fca5a5}
+.result, pre{
+    margin:0;
+    white-space:pre-wrap;
+    word-break:break-word;
+    font-size:12px;
+    font-family:ui-monospace,SFMono-Regular,monospace;
+}
+.result{
+    background:rgba(255,255,255,.05);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:12px;
+    min-height:58px;
+}
+.detail-box{
+    background:rgba(255,255,255,.05);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:12px;
+}
+.tabbar{display:flex;gap:8px;flex-wrap:wrap}
+.tabbar button{width:auto;padding:10px 14px}
+.tabbar button.active{box-shadow:0 0 0 1px rgba(20,184,166,.34) inset}
+.hidden{display:none !important}
+.warning-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:10px}
+.warning-cell{min-height:34px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;cursor:pointer}
+.warning-cell.active{background:rgba(239,68,68,.22);border-color:rgba(248,113,113,.45);color:#fecaca}
+.mini-actions{display:flex;gap:8px;margin-top:10px}
+.mini-actions button{width:auto;padding:8px 10px;border-radius:10px}
+.subtabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.subtabs button{width:auto;padding:10px 12px}
+.compact-grid{display:grid;grid-template-columns:1.25fr .95fr;gap:12px}
+@media (max-width: 1300px){
+    .layout{grid-template-columns:1fr}
+    .room-list,.player-list,.appeal-list,.log-list{max-height:none}
+    .compact-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+    <div class="hero">
+        <div>
+            <div class="title">Admin Control</div>
+            <div class="sub">Живой мониторинг комнаты, игроков, апелляций и ручное управление игрой.</div>
+        </div>
+        <div class="status"><span class="dot" id="statusDot"></span><span id="connStatus">connecting</span></div>
+    </div>
+
+    <div class="layout">
+        <div class="panel">
+            <h2>Комнаты</h2>
+            <div class="toolbar">
+                <button type="button" onclick="sendRefresh()">Обновить</button>
+            </div>
+            <div id="roomList" class="room-list"></div>
+        </div>
+
+        <div class="stack">
+            <div class="panel">
+                <h2>Ответы На Текущий Вопрос</h2>
+                <div id="roomSummary" class="meta">Выбери комнату слева.</div>
+                <div class="toolbar" style="margin-top:10px;">
+                    <button type="button" class="ghost" onclick="setRiskFilter('all')">Все</button>
+                    <button type="button" class="ghost" onclick="setRiskFilter('medium')">Suspicious / High</button>
+                    <button type="button" class="ghost" onclick="setRiskFilter('high')">Только High</button>
+                </div>
+                <div id="answerList" class="appeal-list" style="margin-top:10px;"></div>
+            </div>
+
+            <div class="panel">
+                <h2>Действия по комнате</h2>
+                <div class="stack">
+                    <input id="roomInput" placeholder="PIN комнаты">
+                    <div class="actions2">
+                        <button type="button" onclick="runRoomAction('start_game')">Старт игры</button>
+                        <button type="button" onclick="runRoomAction('snapshot')">Снимок</button>
+                        <button type="button" onclick="runRoomAction('pause_toggle')">Пауза / Продолжить</button>
+                        <button type="button" class="warn" onclick="runRoomAction('force_reveal')">Force Reveal</button>
+                        <button type="button" onclick="runRoomAction('next')">Следующий вопрос</button>
+                        <button type="button" onclick="downloadRoomExport()">Скачать отчёт</button>
+                        <button type="button" class="warn" onclick="downloadAntiCheatReport()">Anti-Cheat doc</button>
+                        <button type="button" class="warn" onclick="runRoomAction('end_game')">Завершить игру</button>
+                        <button type="button" class="danger" onclick="runRoomAction('close_room')">Закрыть комнату</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Игроки И Разбор</h2>
+                <div class="subtabs">
+                    <button type="button" id="subtabPlayersBtn" class="ghost active" onclick="selectReviewTab('players')">Игроки</button>
+                    <button type="button" id="subtabAuditBtn" class="ghost" onclick="selectReviewTab('audit')">Контроль</button>
+                    <button type="button" id="subtabAppealsBtn" class="ghost" onclick="selectReviewTab('appeals')">Апелляции</button>
+                    <button type="button" id="subtabHistoryBtn" class="ghost" onclick="selectReviewTab('history')">История</button>
+                    <button type="button" id="subtabToolsBtn" class="ghost" onclick="selectReviewTab('tools')">Инструменты</button>
+                </div>
+                <div id="reviewPlayersPane">
+                    <div class="compact-grid">
+                        <div id="playerList" class="player-list"></div>
+                        <div id="playerDetailBox" class="detail-box">Выбери игрока, чтобы посмотреть его историю.</div>
+                    </div>
+                </div>
+                <div id="reviewAuditPane" class="hidden">
+                    <div id="auditList" class="player-list"></div>
+                </div>
+                <div id="reviewAppealsPane" class="hidden">
+                    <div id="appealList" class="appeal-list"></div>
+                </div>
+                <div id="reviewHistoryPane" class="hidden">
+                    <div id="historyList" class="appeal-list"></div>
+                </div>
+                <div id="reviewToolsPane" class="hidden">
+                    <div class="compact-grid">
+                        <div class="stack">
+                            <input id="scoreUsername" list="playerOptions" placeholder="Игрок">
+                            <input id="scoreDelta" type="number" placeholder="delta, например 500 или -200">
+                            <textarea id="scoreReason" placeholder="Причина изменения очков"></textarea>
+                            <button type="button" onclick="adjustScore()">Применить изменение очков</button>
+                        </div>
+                        <div class="stack">
+                            <input id="messageUsername" list="playerOptions" placeholder="Игрок или пусто для всех">
+                            <textarea id="messageText" placeholder="Текст сообщения"></textarea>
+                            <button type="button" onclick="sendCustomMessage()">Отправить сообщение</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Логи</h2>
+            <div class="toolbar">
+                <input id="logRoomFilter" placeholder="Фильтр по комнате" oninput="renderLogs()">
+                <input id="logEventFilter" placeholder="Фильтр по типу события" oninput="renderLogs()">
+                <input id="logPlayerFilter" placeholder="Фильтр логов по игроку" oninput="renderLogs()">
+                <button type="button" class="ghost" onclick="clearLogs()">Очистить экран</button>
+            </div>
+            <div id="logList" class="log-list" style="margin-top:10px;"></div>
+            <div id="actionResult" class="result" style="margin-top:14px;">Ожидание действий...</div>
+        </div>
+    </div>
+</div>
+<datalist id="playerOptions"></datalist>
+
+<script>
+let adminSocket = null;
+let selectedRoom = "";
+let currentRooms = [];
+let allLogs = [];
+let adminRefreshTimer = null;
+let selectedReviewTab = "players";
+let adminReconnectTimer = null;
+let riskFilterMode = "all";
+
+function wsBase(){
+    const proto = location.protocol === "https:" ? "wss" : "ws";
+    return `${proto}://${location.host}`;
+}
+
+function byId(id){ return document.getElementById(id); }
+
+function saveAdminState(){
+    try{
+        sessionStorage.setItem("admin.selectedRoom", selectedRoom || "");
+        sessionStorage.setItem("admin.selectedReviewTab", selectedReviewTab || "players");
+    }catch(e){}
+}
+
+function restoreAdminState(){
+    try{
+        const savedRoom = sessionStorage.getItem("admin.selectedRoom") || "";
+        const savedTab = sessionStorage.getItem("admin.selectedReviewTab") || "players";
+        if(savedRoom) selectedRoom = savedRoom;
+        if(savedTab) selectedReviewTab = savedTab;
+    }catch(e){}
+}
+
+function setStatus(text, ok=true){
+    byId("connStatus").textContent = text;
+    byId("statusDot").style.background = ok ? "#22c55e" : "#ef4444";
+    byId("statusDot").style.boxShadow = ok ? "0 0 16px #22c55e" : "0 0 16px #ef4444";
+}
+
+function pretty(v){ return JSON.stringify(v, null, 2); }
+
+function normalizeText(value){
+    return String(value || "").toLowerCase().trim();
+}
+
+function formatTime(ts){
+    if(!ts) return "—";
+    return new Date(ts * 1000).toLocaleTimeString();
+}
+
+function selectedSnapshot(){
+    return currentRooms.find(room => room.room === selectedRoom) || null;
+}
+
+function selectReviewTab(tab){
+    selectedReviewTab = ["players", "audit", "appeals", "history", "tools"].includes(tab) ? tab : "players";
+    saveAdminState();
+    byId("reviewPlayersPane").classList.toggle("hidden", selectedReviewTab !== "players");
+    byId("reviewAuditPane").classList.toggle("hidden", selectedReviewTab !== "audit");
+    byId("reviewAppealsPane").classList.toggle("hidden", selectedReviewTab !== "appeals");
+    byId("reviewHistoryPane").classList.toggle("hidden", selectedReviewTab !== "history");
+    byId("reviewToolsPane").classList.toggle("hidden", selectedReviewTab !== "tools");
+    byId("subtabPlayersBtn").classList.toggle("active", selectedReviewTab === "players");
+    byId("subtabAuditBtn").classList.toggle("active", selectedReviewTab === "audit");
+    byId("subtabAppealsBtn").classList.toggle("active", selectedReviewTab === "appeals");
+    byId("subtabHistoryBtn").classList.toggle("active", selectedReviewTab === "history");
+    byId("subtabToolsBtn").classList.toggle("active", selectedReviewTab === "tools");
+}
+
+function ensureSelectedRoom(){
+    if(selectedRoom && currentRooms.some(room => room.room === selectedRoom)){
+        saveAdminState();
+        return;
+    }
+    if(currentRooms.length){
+        selectedRoom = currentRooms[0].room;
+        byId("roomInput").value = selectedRoom;
+    } else {
+        selectedRoom = "";
+        byId("roomInput").value = "";
+    }
+    saveAdminState();
+}
+
+function updatePlayerOptions(snapshot){
+    const datalist = byId("playerOptions");
+    if(!datalist) return;
+    const players = Array.isArray(snapshot?.players) ? snapshot.players : [];
+    datalist.innerHTML = players
+        .map(player => `<option value="${String(player.username || "").replace(/"/g, "&quot;")}"></option>`)
+        .join("");
+}
+
+function ensureRoom(){
+    const room = (byId("roomInput").value || "").trim();
+    if(!room){
+        byId("actionResult").textContent = "Сначала выбери или введи PIN комнаты.";
+        return null;
+    }
+    return room;
+}
+
+function send(payload){
+    if(adminSocket && adminSocket.readyState === WebSocket.OPEN){
+        adminSocket.send(JSON.stringify(payload));
+        return true;
+    }
+    byId("actionResult").textContent = "Admin websocket не подключён.";
+    return false;
+}
+
+function downloadRoomExport(){
+    const room = ensureRoom();
+    if(!room) return;
+    window.open(`/export/${encodeURIComponent(room)}?format=csv`, "_blank", "noopener");
+}
+
+function downloadAntiCheatReport(){
+    const room = ensureRoom();
+    if(!room) return;
+    window.open(`/export/${encodeURIComponent(room)}?format=anti_cheat_html`, "_blank", "noopener");
+}
+
+function selectRoom(room){
+    selectedRoom = room;
+    byId("roomInput").value = room;
+    saveAdminState();
+    renderRooms();
+    renderSelectedRoom();
+    send({type:"admin_action", room, action:"snapshot"});
+}
+
+function renderRooms(){
+    ensureSelectedRoom();
+    const list = byId("roomList");
+    if(!currentRooms.length){
+        list.innerHTML = `<div class="card">Активных комнат нет</div>`;
+        return;
+    }
+    list.innerHTML = currentRooms.map(room => `
+        <div class="card ${selectedRoom === room.room ? "active" : ""}" onclick="selectRoom('${room.room}')">
+            <div class="row">
+                <strong class="mono">${room.room}</strong>
+                <span class="pill ${room.paused ? "warn" : "good"}">${room.status || "unknown"}</span>
+            </div>
+            <div class="meta" style="margin-top:8px;">
+                quiz: ${room.quiz || "—"}<br>
+                connected: ${room.connected_players}/${room.players_count}<br>
+                answers: ${room.answers_count}<br>
+                question_index: ${room.question_index}<br>
+                current_view: ${room.current_view || "—"}
+            </div>
+        </div>
+    `).join("");
+}
+
+function kickPlayer(username){
+    const room = ensureRoom();
+    if(!room) return;
+    send({type:"admin_action", room, action:"kick_player", username});
+}
+
+function fillAdjust(username){
+    byId("scoreUsername").value = username;
+    byId("messageUsername").value = username;
+}
+
+function quickMessage(username){
+    const room = ensureRoom();
+    if(!room) return;
+    const text = prompt(`Сообщение для ${username}`, "");
+    if(text == null) return;
+    const trimmed = String(text || "").trim();
+    if(!trimmed){
+        byId("actionResult").textContent = "Текст сообщения пустой.";
+        return;
+    }
+    byId("messageUsername").value = username;
+    byId("messageText").value = trimmed;
+    send({
+        type:"admin_action",
+        room,
+        action:"send_message",
+        username,
+        message: trimmed
+    });
+}
+
+function markManualSuspicious(username, value=true){
+    const room = ensureRoom();
+    if(!room) return;
+    const note = value ? (prompt(`Почему пометить ${username} как suspicious?`, "") || "") : "";
+    send({
+        type:"admin_action",
+        room,
+        action:"set_manual_suspicious",
+        username,
+        value,
+        note
+    });
+}
+
+function setRiskFilter(mode){
+    riskFilterMode = ["all", "medium", "high"].includes(mode) ? mode : "all";
+    const snapshot = selectedSnapshot();
+    if(snapshot){
+        renderPlayers(snapshot);
+        renderAnswers(snapshot);
+    }
+}
+
+function riskClass(risk){
+    if(risk === "high") return "risk-high";
+    if(risk === "medium") return "risk-medium";
+    return "risk-low";
+}
+
+function riskLabel(risk){
+    if(risk === "high") return "high risk";
+    if(risk === "medium") return "suspicious";
+    return "clean";
+}
+
+function renderWarningStrip(player){
+    const warningCount = Number(player?.warning_count || 0);
+    const visible = Math.min(5, Math.max(0, warningCount));
+    return `
+        <div class="warning-strip">
+            ${Array.from({length: 5}, (_, index) => `
+                <div class="warning-cell ${index < visible ? "active" : ""}" onclick="setWarningCount('${player.username}', ${index + 1})">${index < visible ? "✖" : ""}</div>
+            `).join("")}
+        </div>
+        <div class="meta" style="margin-top:8px;">
+            warnings: ${warningCount}<br>
+            penalties: ${Number(player?.penalties_applied || 0)}
+        </div>
+        <div class="mini-actions">
+            <button type="button" class="ghost" onclick="adjustWarningCount('${player.username}', -1)">-1</button>
+            <button type="button" class="warn" onclick="adjustWarningCount('${player.username}', 1)">+1</button>
+        </div>
+    `;
+}
+
+function setWarningCount(username, count){
+    const room = ensureRoom();
+    if(!room) return;
+    send({type:"admin_action", room, action:"set_warning_count", username, warning_count: count});
+}
+
+function adjustWarningCount(username, delta){
+    const snapshot = selectedSnapshot();
+    const player = (snapshot?.players || []).find(item => item.username === username);
+    const currentCount = Number(player?.warning_count || 0);
+    setWarningCount(username, Math.max(0, currentCount + Number(delta || 0)));
+}
+
+function showPlayerDetails(username){
+    const snapshot = selectedSnapshot();
+    if(!snapshot) return;
+    const player = (snapshot.players || []).find(item => item.username === username);
+    const currentAnswer = (snapshot.current_answers || []).find(item => item.username === username);
+    const history = (snapshot.player_history || {})[username] || [];
+    const timeline = (snapshot.player_timelines || {})[username] || [];
+    byId("playerDetailBox").innerHTML = `
+        <div class="meta">
+            <strong>${username}</strong><br>
+            risk: ${riskLabel(player?.risk)} (${Number(player?.suspicion_score || 0)})<br>
+            current answer: ${currentAnswer ? pretty(currentAnswer) : "—"}
+        </div>
+        <div class="card ${riskClass(player?.risk)}" style="margin-top:10px;">
+            <strong>Таймлайн игрока</strong>
+            <div class="meta" style="margin-top:8px;">
+                ${timeline.length ? timeline.slice().reverse().map(item => {
+                    const extra = [];
+                    if(item.question) extra.push(`question: ${item.question}`);
+                    if(item.answer != null) extra.push(`answer: ${typeof item.answer === "object" ? pretty(item.answer) : item.answer}`);
+                    if(item.response_time_ms != null) extra.push(`response_time_ms: ${item.response_time_ms}`);
+                    if(item.offline_before_answer_seconds != null) extra.push(`offline_before_answer: ${Number(item.offline_before_answer_seconds).toFixed(2)} sec`);
+                    if(item.reason) extra.push(`reason: ${item.reason}`);
+                    return `<div style="margin-bottom:8px;"><strong>${item.event}</strong> • ${new Date((item.ts || 0) * 1000).toLocaleTimeString()}<br>${extra.join("<br>")}</div>`;
+                }).join("") : "Событий пока нет"}
+            </div>
+        </div>
+        <div class="card" style="margin-top:10px;">
+            <strong>История ответов</strong>
+            <pre style="margin-top:8px;">${pretty(history)}</pre>
+        </div>
+    `;
+}
+
+function renderPlayers(snapshot){
+    const list = byId("playerList");
+    const players = (Array.isArray(snapshot?.players) ? snapshot.players : [])
+        .slice()
+        .sort((a, b)=> Number(b?.suspicion_score || 0) - Number(a?.suspicion_score || 0))
+        .filter((player)=>{
+            if(riskFilterMode === "high") return player?.risk === "high";
+            if(riskFilterMode === "medium") return player?.risk === "medium" || player?.risk === "high";
+            return true;
+        });
+    if(!players.length){
+        list.innerHTML = `<div class="card">Игроков нет</div>`;
+        return;
+    }
+    list.innerHTML = players.map(player => `
+        <div class="card ${riskClass(player.risk)}">
+            <div class="row">
+                <strong>${player.username}</strong>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <span class="pill ${player.connected ? "good" : "bad"}">${player.connected ? "online" : "offline"}</span>
+                    <span class="pill ${riskClass(player.risk)}">${riskLabel(player.risk)} • ${Number(player.suspicion_score || 0)}</span>
+                    ${player.late_joiner ? `<span class="pill warn">joined late</span>` : ""}
+                </div>
+            </div>
+            <div class="meta" style="margin-top:8px;">
+                score: ${player.score}<br>
+                status: ${player.connected ? "online" : "offline"}<br>
+                joined_late: ${player.late_joiner ? "yes" : "no"}<br>
+                answered: ${player.answered ? "yes" : "no"}<br>
+                finalized: ${player.finalized ? "yes" : "no"}<br>
+                team_id: ${player.team_id || "—"}<br>
+                suspicion_score: ${Number(player.suspicion_score || 0)}<br>
+                штрафов: ${Number(player.penalties_applied || 0)}
+            </div>
+            ${renderWarningStrip(player)}
+            <div class="actions2" style="margin-top:10px;">
+                <button type="button" onclick="showPlayerDetails('${player.username}')">Детали</button>
+                <button type="button" class="ghost" onclick="fillAdjust('${player.username}')">Изменить очки</button>
+                <button type="button" class="danger" onclick="kickPlayer('${player.username}')">Кик</button>
+            </div>
+        </div>
+    `).join("");
+}
+
+function renderAudit(snapshot){
+    const list = byId("auditList");
+    const audit = Array.isArray(snapshot?.current_question_monitor) ? snapshot.current_question_monitor : [];
+    if(!audit.length){
+        list.innerHTML = `<div class="card">Во время вопроса здесь будут ответы, время ответа и сворачивания вкладки.</div>`;
+        return;
+    }
+    list.innerHTML = audit.map(item => `
+        <div class="card ${riskClass(item.risk)}">
+            <div class="row">
+                <strong>${item.username}</strong>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <span class="pill ${item.connected ? "good" : "bad"}">${item.connected ? "online" : "offline"}</span>
+                    <span class="pill ${riskClass(item.risk)}">${riskLabel(item.risk)} • ${Number(item.suspicion_score || 0)}</span>
+                    ${item.late_joiner ? `<span class="pill warn">joined late</span>` : ""}
+                </div>
+            </div>
+            <div class="meta" style="margin-top:8px;">
+                answered: ${item.answered ? "yes" : "no"}<br>
+                finalized: ${item.finalized ? "yes" : "no"}<br>
+                joined_late: ${item.late_joiner ? "yes" : "no"}<br>
+                answer: ${typeof item.answer === "object" ? pretty(item.answer) : (item.answer ?? "—")}<br>
+                response_time_ms: ${item.response_time_ms ?? "—"}<br>
+                tab_switches: ${item.tab_switches ?? 0}<br>
+                offline_seconds: ${item.offline_seconds ?? 0}<br>
+                offline_before_answer_seconds: ${item.offline_before_answer_seconds ?? 0}<br>
+                suspicion_score: ${Number(item.suspicion_score || 0)}
+            </div>
+            ${renderWarningStrip(item)}
+        </div>
+    `).join("");
+}
+
+function resolveAppeal(appealId, resolution){
+    const room = ensureRoom();
+    if(!room) return;
+    const delta = resolution === "approved"
+        ? Number(prompt("Сколько очков изменить? Можно отрицательное число.", "0") || "0")
+        : 0;
+    const reason = prompt("Комментарий администратора", "") || "";
+    send({
+        type:"admin_action",
+        room,
+        action:"resolve_appeal",
+        appeal_id: appealId,
+        resolution,
+        delta,
+        reason
+    });
+}
+
+function renderAppeals(snapshot){
+    const list = byId("appealList");
+    const appeals = Array.isArray(snapshot?.pending_appeals) ? snapshot.pending_appeals : [];
+    if(!appeals.length){
+        list.innerHTML = `<div class="card">Апелляций нет</div>`;
+        return;
+    }
+    list.innerHTML = appeals.map(item => `
+        <div class="card">
+            <div class="row">
+                <strong>#${item.id} ${item.username || "—"}</strong>
+                <span class="pill ${item.resolved ? "good" : "warn"}">${item.resolved ? (item.resolution || "resolved") : "pending"}</span>
+            </div>
+            <div class="meta" style="margin-top:8px;">
+                q_index: ${item.question_index ?? "—"}<br>
+                type: ${item.question_type || "—"}<br>
+                question: ${item.question || "—"}<br>
+                answer: ${typeof item.answer === "object" ? pretty(item.answer) : (item.answer ?? "—")}<br>
+                reason: ${item.reason || "—"}<br>
+                points: ${item.points ?? "—"}<br>
+                correct: ${typeof item.correct === "object" ? pretty(item.correct) : (item.correct ?? "—")}<br>
+                time: ${formatTime(item.ts)}
+            </div>
+            ${item.resolved ? "" : `
+                <div class="actions2" style="margin-top:10px;">
+                    <button type="button" onclick="resolveAppeal(${item.id}, 'approved')">Approve</button>
+                    <button type="button" class="danger" onclick="resolveAppeal(${item.id}, 'rejected')">Reject</button>
+                </div>
+            `}
+        </div>
+    `).join("");
+}
+
+function renderAnswers(snapshot){
+    const list = byId("answerList");
+    const playerMap = new Map((Array.isArray(snapshot?.players) ? snapshot.players : []).map((player)=>[player.username, player]));
+    const answers = (Array.isArray(snapshot?.current_answers) ? snapshot.current_answers : [])
+        .map((item)=>({
+            ...item,
+            penalties_applied: Number(playerMap.get(item.username)?.penalties_applied || 0),
+            warning_count: Number(playerMap.get(item.username)?.warning_count || 0),
+        }))
+        .sort((a, b)=> Number(b?.suspicion_score || 0) - Number(a?.suspicion_score || 0))
+        .filter((item)=>{
+            if(riskFilterMode === "high") return item?.risk === "high";
+            if(riskFilterMode === "medium") return item?.risk === "medium" || item?.risk === "high";
+            return true;
+        });
+    if(!answers.length){
+        list.innerHTML = `<div class="card">Ответов пока нет</div>`;
+        return;
+    }
+    list.innerHTML = answers.map(item => {
+        const answerText = item.attempts
+            ? pretty(item.attempts)
+            : item.selected_list != null
+                ? pretty(item.selected_list)
+                : item.selected != null
+                    ? String(item.selected)
+                    : (item.value ?? "—");
+        return `
+            <div class="card ${riskClass(item.risk)}">
+                <div class="row">
+                    <strong>${item.username}</strong>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <span class="pill ${item.finalized ? "good" : "warn"}">${item.finalized ? "finalized" : "in progress"}</span>
+                        <span class="pill ${riskClass(item.risk)}">${riskLabel(item.risk)} • ${Number(item.suspicion_score || 0)}</span>
+                    </div>
+                </div>
+                <div class="meta" style="margin-top:8px;">
+                    answer: ${typeof answerText === "string" ? answerText : pretty(answerText)}<br>
+                    solved: ${item.solved ? "yes" : "no"}<br>
+                    remaining: ${item.remaining ?? "—"}<br>
+                    перед ответом был offline: ${Number(item.offline_before_answer_seconds || 0).toFixed(2)} сек<br>
+                    штрафов: ${Number(item.penalties_applied || 0)}<br>
+                    manual suspicious: ${item.manual_suspicious ? "yes" : "no"}
+                </div>
+                <div class="mini-actions">
+                    <button type="button" class="warn" onclick="adjustWarningCount('${item.username}', 1)">+ warning</button>
+                    <button type="button" class="danger" onclick="quickPenalty('${item.username}', -500)">-500</button>
+                    <button type="button" class="warn" onclick="markManualSuspicious('${item.username}', true)">suspicious</button>
+                    <button type="button" class="ghost" onclick="markManualSuspicious('${item.username}', false)">clear suspicious</button>
+                    <button type="button" class="ghost" onclick="quickMessage('${item.username}')">message</button>
+                    <button type="button" class="ghost" onclick="showPlayerDetails('${item.username}')">Детали</button>
+                </div>
+            </div>
+        `;
+    }).join("");
+}
+
+function renderHistory(snapshot){
+    const list = byId("historyList");
+    const history = Array.isArray(snapshot?.question_history) ? snapshot.question_history : [];
+    if(!history.length){
+        list.innerHTML = `<div class="card">История вопросов пока пуста</div>`;
+        return;
+    }
+    list.innerHTML = history.slice().reverse().map(item => `
+        <div class="card">
+            <div class="row">
+                <strong>#${(item.question_index ?? 0) + 1}</strong>
+                <span class="pill">${item.question_type || "—"}</span>
+            </div>
+            <div class="meta" style="margin-top:8px;">
+                question: ${item.question || "—"}<br>
+                answered_count: ${item.answered_count ?? "—"}<br>
+                points: ${item.points ?? "—"}<br>
+                offline_map: ${pretty(item.offline_ms || {})}
+            </div>
+        </div>
+    `).join("");
+}
+
+function renderSelectedRoom(){
+    const snapshot = selectedSnapshot();
+    if(!snapshot){
+        byId("roomSummary").textContent = "Выбери комнату слева.";
+        byId("playerList").innerHTML = "";
+        byId("auditList").innerHTML = "";
+        byId("appealList").innerHTML = "";
+        byId("answerList").innerHTML = "";
+        byId("historyList").innerHTML = "";
+        byId("playerDetailBox").textContent = "Выбери игрока, чтобы посмотреть его историю.";
+        updatePlayerOptions(null);
+        return;
+    }
+    byId("roomSummary").innerHTML = `
+        room: <span class="mono">${snapshot.room}</span><br>
+        quiz: ${snapshot.quiz || "—"}<br>
+        status: ${snapshot.status || "—"}<br>
+        players: ${snapshot.connected_players}/${snapshot.players_count}<br>
+        answers: ${snapshot.answers_count}<br>
+        view: ${snapshot.current_view || "—"}<br>
+        teams: ${snapshot.teams_count}<br>
+        paused: ${snapshot.paused ? "yes" : "no"}
+    `;
+    renderPlayers(snapshot);
+    renderAudit(snapshot);
+    renderAppeals(snapshot);
+    renderAnswers(snapshot);
+    renderHistory(snapshot);
+    updatePlayerOptions(snapshot);
+}
+
+function logMatchesFilter(entry){
+    const playerFilter = normalizeText(byId("logPlayerFilter")?.value);
+    const roomFilter = normalizeText(byId("logRoomFilter")?.value);
+    const eventFilter = normalizeText(byId("logEventFilter")?.value);
+    const details = entry.details || {};
+    const playerCandidates = [
+        details.username,
+        details.user,
+        details.player,
+        details.target,
+        details.player_name,
+    ];
+    if(roomFilter && !normalizeText(entry.room).includes(roomFilter)) return false;
+    if(eventFilter && !normalizeText(entry.event).includes(eventFilter)) return false;
+    if(playerFilter && !playerCandidates.some(value => normalizeText(value).includes(playerFilter))) return false;
+    return true;
+}
+
+function renderLogs(){
+    const list = byId("logList");
+    const visibleLogs = allLogs.filter(logMatchesFilter).slice(0, 500);
+    list.innerHTML = visibleLogs.map(entry => {
+        const details = entry.details || {};
+        const actor = details.username || details.user || details.player || details.target || details.player_name || "";
+        return `
+            <div class="card">
+                <div class="row">
+                    <strong>${entry.event}</strong>
+                    <span class="meta">${formatTime(entry.ts)}</span>
+                </div>
+                <div class="meta" style="margin:6px 0;">
+                    room: ${entry.room || "global"}${actor ? `<br>player: ${actor}` : ""}
+                </div>
+                <pre>${pretty(details)}</pre>
+            </div>
+        `;
+    }).join("");
+}
+
+function pushLog(entry){
+    allLogs.unshift(entry);
+    if(allLogs.length > 2000){
+        allLogs.length = 2000;
+    }
+    renderLogs();
+}
+
+function clearLogs(){
+    allLogs = [];
+    byId("logList").innerHTML = "";
+}
+
+function applyInit(data){
+    currentRooms = Array.isArray(data.rooms) ? data.rooms : [];
+    ensureSelectedRoom();
+    selectReviewTab(selectedReviewTab);
+    renderRooms();
+    renderSelectedRoom();
+    clearLogs();
+    (data.logs || []).slice().reverse().forEach(pushLog);
+}
+
+function upsertRoom(snapshot){
+    const idx = currentRooms.findIndex(item => item.room === snapshot.room);
+    if(idx >= 0) currentRooms[idx] = snapshot;
+    else currentRooms.unshift(snapshot);
+    ensureSelectedRoom();
+    renderRooms();
+    renderSelectedRoom();
+}
+
+function startAdminAutoRefresh(){
+    if(adminRefreshTimer){
+        clearInterval(adminRefreshTimer);
+    }
+    adminRefreshTimer = setInterval(()=>{
+        if(selectedRoom){
+            send({type:"admin_action", room:selectedRoom, action:"snapshot"});
+        } else {
+            send({type:"admin_refresh"});
+        }
+    }, 3000);
+}
+
+function connectAdmin(){
+    adminSocket = new WebSocket(`${wsBase()}/ws/admin`);
+    setStatus("connecting", true);
+    adminSocket.onopen = ()=>{
+        if(adminReconnectTimer){
+            clearTimeout(adminReconnectTimer);
+            adminReconnectTimer = null;
+        }
+        setStatus("connected", true);
+        startAdminAutoRefresh();
+        if(selectedRoom){
+            send({type:"admin_action", room:selectedRoom, action:"snapshot"});
+        } else {
+            send({type:"admin_refresh"});
+        }
+    };
+    adminSocket.onclose = ()=>{
+        setStatus("disconnected", false);
+        if(adminRefreshTimer){
+            clearInterval(adminRefreshTimer);
+            adminRefreshTimer = null;
+        }
+        adminReconnectTimer = setTimeout(connectAdmin, 1500);
+    };
+    adminSocket.onerror = ()=> setStatus("error", false);
+    adminSocket.onmessage = (event)=>{
+        const data = JSON.parse(event.data);
+        if(data.type === "admin_init"){
+            applyInit(data);
+            return;
+        }
+        if(data.type === "admin_log"){
+            pushLog(data.entry);
+            return;
+        }
+        if(data.type === "room_snapshot"){
+            upsertRoom(data.snapshot);
+            return;
+        }
+        if(data.type === "room_removed"){
+            currentRooms = currentRooms.filter(item => item.room !== data.room);
+            if(selectedRoom === data.room) selectedRoom = "";
+            ensureSelectedRoom();
+            renderRooms();
+            renderSelectedRoom();
+            return;
+        }
+        if(data.type === "admin_action_result"){
+            byId("actionResult").textContent = pretty(data);
+            if(data.result && data.result.snapshot){
+                upsertRoom(data.result.snapshot);
+            } else {
+                sendRefresh();
+            }
+        }
+    };
+}
+
+function sendRefresh(){
+    send({type:"admin_refresh"});
+}
+
+function restoreAdminView(){
+    restoreAdminState();
+    byId("roomInput").value = selectedRoom || "";
+    selectReviewTab(selectedReviewTab);
+    if(adminSocket && adminSocket.readyState === WebSocket.OPEN){
+        if(selectedRoom){
+            send({type:"admin_action", room:selectedRoom, action:"snapshot"});
+        } else {
+            send({type:"admin_refresh"});
+        }
+        return;
+    }
+    if(!adminSocket || adminSocket.readyState === WebSocket.CLOSED){
+        connectAdmin();
+    }
+}
+
+function runRoomAction(action){
+    const room = ensureRoom();
+    if(!room) return;
+    send({type:"admin_action", room, action});
+}
+
+function adjustScore(){
+    const room = ensureRoom();
+    if(!room) return;
+    const username = (byId("scoreUsername").value || "").trim();
+    const delta = Number(byId("scoreDelta").value || "0");
+    const reason = (byId("scoreReason").value || "").trim();
+    if(!username){
+        byId("actionResult").textContent = "Укажи игрока для изменения очков.";
+        return;
+    }
+    send({type:"admin_action", room, action:"adjust_score", username, delta, reason});
+}
+
+function quickPenalty(username, delta){
+    const room = ensureRoom();
+    if(!room) return;
+    send({
+        type:"admin_action",
+        room,
+        action:"adjust_score",
+        username,
+        delta,
+        reason:"Anti-cheat quick penalty"
+    });
+}
+
+function sendCustomMessage(){
+    const room = ensureRoom();
+    if(!room) return;
+    const username = (byId("messageUsername").value || "").trim();
+    const message = (byId("messageText").value || "").trim();
+    if(!message){
+        byId("actionResult").textContent = "Введите текст сообщения.";
+        return;
+    }
+    send({type:"admin_action", room, action:"send_message", username, message});
+}
+
+restoreAdminState();
+connectAdmin();
+selectReviewTab(selectedReviewTab);
+window.addEventListener("pageshow", ()=>{ restoreAdminView(); });
+document.addEventListener("visibilitychange", ()=>{
+    if(document.visibilityState === "visible"){
+        restoreAdminView();
+    }
+});
+</script>
+</body>
+</html>
