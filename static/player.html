@@ -1774,6 +1774,7 @@ let wsJoin = null;              // { pin, name }
 let reconnectTimer = null;
 let reconnectAttempt = 0;
 let suppressReconnectOnClose = false;
+let intentionalPlayerExit = false;
 let presenceSuspended = false;
 let presenceTrackingActive = false;
 let leaderboardSyncTimer = null;
@@ -1794,6 +1795,13 @@ function saveJoinSession(){
 
 function clearJoinSession(){
   try{ sessionStorage.removeItem("kahoot_last_join_session"); }catch(e){}
+}
+
+function clearReconnectTimer(){
+  if(reconnectTimer){
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
 }
 
 function applyPlayerUrlParams(){
@@ -1962,6 +1970,7 @@ function startHeartbeat(){
 function scheduleReconnect(){
   if(reconnectTimer) return;
   if(closedByRoom) return; // don't reconnect if kicked/room closed
+  if(intentionalPlayerExit) return;
   if(presenceSuspended) return;
   if(navigator.onLine === false) return;
 
@@ -2004,10 +2013,7 @@ function armLeaderboardSyncTimer(){
 function suspendPresence(){
   if(!presenceTrackingActive) return;
   presenceSuspended = true;
-  if(reconnectTimer){
-    clearTimeout(reconnectTimer);
-    reconnectTimer = null;
-  }
+  clearReconnectTimer();
   try{ blurWordleInput(); }catch(e){}
   if(!ws) return;
   if(ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING){
@@ -2023,6 +2029,7 @@ function resumePresence(){
   const hadSuspendedPresence = presenceSuspended;
   presenceSuspended = false;
   if(closedByRoom) return;
+  if(intentionalPlayerExit) return;
   if(!ws || ws.readyState === WebSocket.CLOSED){
     if(hadSuspendedPresence){
       connectPlayerWS(true);
@@ -2040,6 +2047,7 @@ function resumePresence(){
 
 function connectPlayerWS(isReconnect=false){
   if(!wsJoin || !wsJoin.pin || !wsJoin.name) return;
+  if(intentionalPlayerExit) return;
 
   // close old
   try{
@@ -3457,13 +3465,22 @@ function handlePlayerMessage(raw){
     // === From here: KEEP YOUR EXISTING MESSAGE HANDLING LOGIC EXACTLY AS IT WAS ===
     // IMPORTANT: the rest of your current onmessage body stays, but it must NOT reference a nested handlePlayerMessage.
     if(data.type === "error"){
-        socket.close();
-        socket = null;
+        const messageText = String(data.message || "");
+        const roomMissing = messageText.indexOf("Комната с таким кодом не существует") !== -1;
+        if(roomMissing && (intentionalPlayerExit || presenceSuspended || document.hidden)){
+            clearJoinSession();
+            wsJoin = null;
+            hasConfirmedServerSession = false;
+            updateReturnButton();
+            resetPlayerConnectionState();
+            return;
+        }
+        resetPlayerConnectionState();
         document.getElementById("joinSection").style.display="block";
         document.getElementById("gameSection").style.display="none";
         document.getElementById("content").innerHTML = "";
         document.getElementById("error").innerHTML =
-            `<div class="error">${data.message}</div>`;
+            `<div class="error">${messageText}</div>`;
         resetJoinUiState();
         return;
     }
@@ -3492,6 +3509,8 @@ function handlePlayerMessage(raw){
             "<div class='error'>Вы кикнуты ведущим</div>";
         resetJoinUiState();
         clearJoinSession();
+        wsJoin = null;
+        hasConfirmedServerSession = false;
         updateReturnButton();
 
         // Полный сброс состояния
@@ -3528,6 +3547,8 @@ function handlePlayerMessage(raw){
             `<div class='error'>${data.message || "Тест завершен"}</div>`;
         resetJoinUiState();
         clearJoinSession();
+        wsJoin = null;
+        hasConfirmedServerSession = false;
         updateReturnButton();
 
         document.getElementById("name").value = "";
@@ -3563,6 +3584,8 @@ function handlePlayerMessage(raw){
             "<div class='error'>Тест завершен</div>";
         resetJoinUiState();
         clearJoinSession();
+        wsJoin = null;
+        hasConfirmedServerSession = false;
         updateReturnButton();
 
         // Полный сброс состояния
@@ -4502,6 +4525,8 @@ function join(){
     }
 
     document.getElementById("error").innerHTML = "";
+    intentionalPlayerExit = false;
+    closedByRoom = false;
     setJoinButtonLoading(true);
     document.getElementById("joinSection").style.display = "none";
     document.getElementById("gameSection").style.display = "block";
@@ -4724,21 +4749,34 @@ function showError(msg){
         `<div class="error">${msg}</div>`;
 }
 
+function resetPlayerConnectionState(){
+    clearReconnectTimer();
+    clearLeaderboardSyncTimer();
+    try{ stopHeartbeat(); }catch(e){}
+    reconnectAttempt = 0;
+    presenceSuspended = false;
+    try{
+        if(socket){
+            suppressReconnectOnClose = true;
+            socket.close();
+        }
+    }catch(e){}
+    ws = null;
+    socket = null;
+}
+
 function goBack(){
+    intentionalPlayerExit = true;
     presenceTrackingActive = false;
     closedByRoom = true;
     hasConfirmedServerSession = false;
-    try{ stopHeartbeat(); }catch(e){}
+    wsJoin = null;
     clearJoinSession();
     updateReturnButton();
     try{ localStorage.removeItem("kahoot_last_answer_state"); }catch(e){}
     currentPlayerTeams = [];
     currentPlayerTeamLeaderboard = [];
-    if(socket){
-        try{ socket.close(); }catch(e){}
-    }
-    ws = null;
-    socket = null;
+    resetPlayerConnectionState();
     cleanupQuestionAudio();
     document.getElementById("joinSection").style.display="block";
     document.getElementById("gameSection").style.display="none";
