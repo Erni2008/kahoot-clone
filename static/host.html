@@ -2533,19 +2533,12 @@ let lastQuestionText = "";
 let lastQuestionType = "";
 let hostHeartbeatTimer = null;
 let hostLastPongAt = Date.now();
-let hostReconnectTimer = null;
 let hostSocketsManualClose = false;
 const HOST_HEARTBEAT_MS = 15000;
 const HOST_PONG_TIMEOUT_MS = 45000;
 
 function saveHostSession(){
-    if(!currentPin) return;
-    try{
-        sessionStorage.setItem("kahoot_host_session", JSON.stringify({
-            pin: currentPin,
-            quiz: document.getElementById("quizSelect") ? document.getElementById("quizSelect").value : ""
-        }));
-    }catch(e){}
+    return;
 }
 
 function clearHostSession(){
@@ -2553,19 +2546,6 @@ function clearHostSession(){
 }
 
 function restoreHostSession(){
-    try{
-        const raw = JSON.parse(sessionStorage.getItem("kahoot_host_session") || "null");
-        if(!raw || !raw.pin) return false;
-        currentPin = String(raw.pin || "").trim();
-        if(!currentPin) return false;
-        const quizSelect = document.getElementById("quizSelect");
-        if(quizSelect && raw.quiz){
-            quizSelect.value = raw.quiz;
-        }
-        updatePinBadge();
-        connectHostSockets();
-        return true;
-    }catch(e){}
     return false;
 }
 
@@ -2589,17 +2569,12 @@ function startHostHeartbeat(){
 
 function connectHostSockets(){
     if(!currentPin) return;
-    saveHostSession();
     const protocol = location.protocol === "https:" ? "wss" : "ws";
 
     socket = new WebSocket(`${protocol}://${location.host}/ws/host?room=${encodeURIComponent(currentPin)}&username=host`);
     socket.onopen = ()=>{
         hostLastPongAt = Date.now();
         startHostHeartbeat();
-        if(hostReconnectTimer){
-            clearTimeout(hostReconnectTimer);
-            hostReconnectTimer = null;
-        }
     };
     socket.onerror = ()=>{
         try{ socket.close(); }catch(e){}
@@ -2608,11 +2583,15 @@ function connectHostSockets(){
         stopHostHeartbeat();
         socket = null;
         if(hostSocketsManualClose) return;
-        if(hostReconnectTimer || !currentPin) return;
-        hostReconnectTimer = setTimeout(()=>{
-            hostReconnectTimer = null;
-            connectHostSockets();
-        }, 1500);
+        clearHostSession();
+        currentPin = "";
+        updatePinBadge();
+        document.getElementById("players").innerHTML = "";
+        document.getElementById("question").innerHTML = "";
+        document.getElementById("progress").innerText = "";
+        document.getElementById("gameSection").style.display = "none";
+        document.body.classList.remove("game-mode");
+        document.body.classList.remove("panel-visible");
     };
 
     const hostName = "Ведущий";
@@ -4185,7 +4164,6 @@ document.addEventListener("DOMContentLoaded", ()=>{
     }
 
     updateAppealQueueButton();
-    restoreHostSession();
 });
 
 function handleQuizChange(){
@@ -4230,11 +4208,6 @@ async function createRoom(){
     if(playerSocket){
         try{ playerSocket.close(); }catch(e){}
     }
-    if(hostReconnectTimer){
-        clearTimeout(hostReconnectTimer);
-        hostReconnectTimer = null;
-    }
-
     document.getElementById("players").innerHTML = "";
     document.getElementById("question").innerHTML = "";
     document.getElementById("progress").innerText = "";
@@ -4257,7 +4230,6 @@ async function createRoom(){
 
     currentPin = data.pin;
     updatePinBadge();
-    saveHostSession();
     hostSocketsManualClose = false;
     connectHostSockets();
 
