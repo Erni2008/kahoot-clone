@@ -1538,7 +1538,7 @@ function returnToSavedGame(){
 
 function buildPlayerWsUrl(pin, name){
   const protocol = location.protocol === "https:" ? "wss" : "ws";
-  return `${protocol}://${location.host}/ws/player/${pin}/${encodeURIComponent(name)}`;
+  return `${protocol}://${location.host}/ws/player?room=${encodeURIComponent(pin)}&username=${encodeURIComponent(name)}`;
 }
 
 function stopHeartbeat(){
