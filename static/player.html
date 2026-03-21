@@ -270,6 +270,28 @@ button:hover { transform:scale(1.05); }
     font-weight:900;
 }
 
+.wordle-stat.score-ready{
+    border-color:rgba(34,197,94,.38);
+    box-shadow:0 0 0 1px rgba(34,197,94,.12) inset, 0 14px 28px rgba(34,197,94,.12);
+    background:linear-gradient(180deg, rgba(34,197,94,.18), rgba(15,23,42,.42));
+}
+
+.wordle-stat.score-low{
+    border-color:rgba(239,68,68,.34);
+    box-shadow:0 0 0 1px rgba(239,68,68,.10) inset, 0 14px 28px rgba(239,68,68,.10);
+    background:linear-gradient(180deg, rgba(239,68,68,.18), rgba(15,23,42,.42));
+}
+
+.wordle-hint-ready{
+    background:linear-gradient(135deg,#16a34a,#22c55e) !important;
+    box-shadow:0 18px 36px rgba(34,197,94,.24);
+}
+
+.wordle-hint-low{
+    background:linear-gradient(135deg,#ef4444,#f97316) !important;
+    box-shadow:0 18px 36px rgba(239,68,68,.22);
+}
+
 .wordle-keyboard{
     margin-top:18px;
     display:flex;
@@ -1378,6 +1400,8 @@ let reconnectAttempt = 0;
 let suppressReconnectOnClose = false;
 let presenceSuspended = false;
 let presenceTrackingActive = false;
+let leaderboardSyncTimer = null;
+let currentPlayerScore = 0;
 
 let heartbeatTimer = null;
 let lastPongAt = Date.now();
@@ -1414,6 +1438,46 @@ function fairPlayNoticeHtml(){
   return `<div class="fair-play-note"><strong>Важно</strong>Пожалуйста, отвечайте на вопросы честно. Если будете читерить, с вероятностью 90 процентов это заметят, поэтому не заходите в игру проверять, правильно ли вы думаете, и не гуглите варианты ответов.</div>`;
 }
 
+function getCurrentPlayerName(){
+  const input = document.getElementById("name");
+  return input ? String(input.value || "").trim() : "";
+}
+
+function syncCurrentPlayerScoreFromLeaderboard(leaderboard){
+  const myName = getCurrentPlayerName();
+  if(!myName || !Array.isArray(leaderboard)) return;
+  const row = leaderboard.find((player)=>Array.isArray(player) && String(player[0] || "") === myName);
+  if(row && typeof row[1] === "number" && Number.isFinite(row[1])){
+    currentPlayerScore = row[1];
+    refreshWordleBoard();
+  }
+}
+
+function updateWordleHintMeta(){
+  const hintCountEl = document.getElementById("wordleHintCountValue");
+  const scoreEl = document.getElementById("wordleCurrentScoreValue");
+  const scoreCard = document.getElementById("wordleCurrentScoreCard");
+  const hintBtn = document.getElementById("wordleHintBtn");
+  if(hintCountEl && lastQuestionPayload){
+    const opened = String(currentWordleHintPrefix || "").length;
+    const total = Number(lastQuestionPayload.word_length || 0);
+    hintCountEl.textContent = `${opened} / ${total}`;
+  }
+  if(scoreEl){
+    scoreEl.textContent = `${currentPlayerScore}`;
+  }
+  const hintCost = Number((lastQuestionPayload && lastQuestionPayload.wordle_hint_cost) || 350);
+  const canAffordHint = currentPlayerScore >= hintCost;
+  if(scoreCard){
+    scoreCard.classList.toggle("score-ready", canAffordHint);
+    scoreCard.classList.toggle("score-low", !canAffordHint);
+  }
+  if(hintBtn){
+    hintBtn.classList.toggle("wordle-hint-ready", canAffordHint);
+    hintBtn.classList.toggle("wordle-hint-low", !canAffordHint);
+  }
+}
+
 function setWaitingContent(message){
   document.getElementById("content").innerHTML = `<div class='waiting'>${message}</div>`;
 }
@@ -1434,6 +1498,27 @@ function renderFatalPlayerError(message){
     `;
   }
   if(error) error.innerHTML = "";
+}
+
+function resetJoinUiState(){
+  const nameInput = document.getElementById("name");
+  const pinInput = document.getElementById("pin");
+  if(nameInput){
+    nameInput.disabled = false;
+    nameInput.readOnly = false;
+    nameInput.style.pointerEvents = "auto";
+  }
+  if(pinInput){
+    pinInput.disabled = false;
+    pinInput.readOnly = false;
+    pinInput.style.pointerEvents = "auto";
+  }
+  const warningOverlay = document.getElementById("warningOverlay");
+  if(warningOverlay) warningOverlay.classList.remove("show");
+  const adminMessageOverlay = document.getElementById("adminMessageOverlay");
+  if(adminMessageOverlay) adminMessageOverlay.classList.remove("show");
+  const pauseOverlay = document.getElementById("pauseOverlay");
+  if(pauseOverlay) pauseOverlay.classList.add("hidden");
 }
 
 function updateReturnButton(){
@@ -1489,6 +1574,33 @@ function scheduleReconnect(){
     reconnectTimer = null;
     connectPlayerWS(true);
   }, delay);
+}
+
+function clearLeaderboardSyncTimer(){
+  if(leaderboardSyncTimer){
+    clearTimeout(leaderboardSyncTimer);
+    leaderboardSyncTimer = null;
+  }
+}
+
+function armLeaderboardSyncTimer(){
+  clearLeaderboardSyncTimer();
+  leaderboardSyncTimer = setTimeout(()=>{
+    const content = document.getElementById("content");
+    const stillOnLeaderboard = !!document.getElementById("liveLeaderboard");
+    if(!stillOnLeaderboard || !content) return;
+    if(!wsJoin || !wsJoin.pin || !wsJoin.name) return;
+    if(closedByRoom) return;
+    console.warn("Leaderboard watchdog: forcing reconnect to fetch current payload");
+    try{
+      if(ws && ws.readyState === WebSocket.OPEN){
+        suppressReconnectOnClose = false;
+        ws.close();
+        return;
+      }
+    }catch(e){}
+    connectPlayerWS(true);
+  }, 6500);
 }
 
 function suspendPresence(){
@@ -1600,6 +1712,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
   }catch(e){}
   updateReturnButton();
   presenceTrackingActive = false;
+  resetJoinUiState();
 });
 
 window.addEventListener("error", (event)=>{
@@ -1666,6 +1779,7 @@ let currentPlayerTeamLeaderboard = [];
 let playerDraftHideTimer = null;
 let currentWordleAttempts = [];
 let currentWordleDraft = "";
+let currentWordleHintPrefix = "";
 let currentWordleKeyStates = {};
 let currentWordleAnimatedRow = -1;
 let currentWordleShakingRow = -1;
@@ -1761,7 +1875,8 @@ function applyWordleKey(key){
         return;
     }
     if(typeof key === "string" && key.length === 1 && /[a-zA-Zа-яА-ЯёЁ]/.test(key)){
-        if(currentWordleDraft.length >= maxLength) return;
+        const combinedLength = String(currentWordleHintPrefix || "").length + currentWordleDraft.length;
+        if(combinedLength >= maxLength) return;
         currentWordleDraft += String(key).toLowerCase();
         currentWordlePopIndex = currentWordleDraft.length - 1;
         refreshWordleBoard();
@@ -1775,7 +1890,7 @@ function applyWordleKey(key){
 function syncWordleInput(){
     const input = document.getElementById("wordleTextProxy");
     if(!input) return;
-    input.value = currentWordleDraft;
+    input.value = `${currentWordleHintPrefix}${currentWordleDraft}`;
 }
 
 function focusWordleInput(){
@@ -1805,10 +1920,12 @@ function handleWordleInput(event){
     const maxLength = Number(lastQuestionPayload.word_length || 0);
     const raw = String(event.target.value || "").toLowerCase();
     const cleaned = raw.replace(/[^a-zа-яё]/gi, "").slice(0, maxLength);
+    const prefix = String(currentWordleHintPrefix || "");
+    const protectedValue = cleaned.startsWith(prefix) ? cleaned.slice(prefix.length) : currentWordleDraft;
     const previousLength = currentWordleDraft.length;
-    currentWordleDraft = cleaned;
-    if(cleaned.length > previousLength){
-        currentWordlePopIndex = cleaned.length - 1;
+    currentWordleDraft = protectedValue;
+    if(protectedValue.length > previousLength){
+        currentWordlePopIndex = prefix.length + protectedValue.length - 1;
         setTimeout(()=>{
             currentWordlePopIndex = -1;
             refreshWordleBoard();
@@ -1840,7 +1957,7 @@ function refreshWordleBoard(){
         currentWordleAttempts,
         lastQuestionPayload.max_attempts || 6,
         lastQuestionPayload.word_length || 1,
-        currentWordleDraft,
+        `${currentWordleHintPrefix}${currentWordleDraft}`,
         answered
     );
     syncWordleInput();
@@ -1848,10 +1965,29 @@ function refreshWordleBoard(){
     if(keyboardWrap) keyboardWrap.innerHTML = renderWordleKeyboard();
     const attemptEl = document.getElementById("wordleAttemptValue");
     const pointsEl = document.getElementById("wordlePointsValue");
+    const hintBtn = document.getElementById("wordleHintBtn");
     const usedAttempts = currentWordleAttempts.length || 0;
     const shownAttempt = answered ? Math.max(1, usedAttempts) : Math.min(usedAttempts + 1, Number(lastQuestionPayload.max_attempts || 6));
     if(attemptEl) attemptEl.textContent = `${shownAttempt} / ${lastQuestionPayload.max_attempts || 6}`;
     if(pointsEl) pointsEl.textContent = `${getWordlePointsForAttempt(shownAttempt)}`;
+    updateWordleHintMeta();
+    if(hintBtn){
+        const fullyOpened = String(currentWordleHintPrefix || "").length >= Number(lastQuestionPayload.word_length || 0);
+        const hintCost = Number(lastQuestionPayload.wordle_hint_cost || 350);
+        const insufficientScore = currentPlayerScore < hintCost;
+        hintBtn.disabled = !!answered || fullyOpened || insufficientScore;
+        hintBtn.style.opacity = (!!answered || fullyOpened || insufficientScore) ? "0.6" : "1";
+    }
+}
+
+function buyWordleHint(){
+    if(!lastQuestionPayload || (lastQuestionPayload.question_type || "mcq") !== "wordle") return;
+    if(answered) return;
+    if(socket && socket.readyState === WebSocket.OPEN){
+        socket.send(JSON.stringify({ type:"buy_wordle_hint" }));
+        return;
+    }
+    scheduleReconnect();
 }
 
 function handleWordleKeydown(event){
@@ -2575,6 +2711,7 @@ function handlePlayerMessage(raw){
         }
 
         if(Array.isArray(data.leaderboard)){
+            syncCurrentPlayerScoreFromLeaderboard(data.leaderboard);
             if(document.getElementById("liveLeaderboard")){
                 renderLiveLeaderboard(data.leaderboard);
             }
@@ -2620,6 +2757,7 @@ function handlePlayerMessage(raw){
         document.getElementById("content").innerHTML = "";
         document.getElementById("error").innerHTML =
             `<div class="error">${data.message}</div>`;
+        resetJoinUiState();
         return;
     }
 
@@ -2645,6 +2783,7 @@ function handlePlayerMessage(raw){
     document.getElementById("content").innerHTML = "";
     document.getElementById("error").innerHTML =
             "<div class='error'>Вы кикнуты ведущим</div>";
+        resetJoinUiState();
         clearJoinSession();
         updateReturnButton();
 
@@ -2680,6 +2819,7 @@ function handlePlayerMessage(raw){
         document.getElementById("content").innerHTML = "";
         document.getElementById("error").innerHTML =
             `<div class='error'>${data.message || "Тест завершен"}</div>`;
+        resetJoinUiState();
         clearJoinSession();
         updateReturnButton();
 
@@ -2714,6 +2854,7 @@ function handlePlayerMessage(raw){
         document.getElementById("content").innerHTML = "";
         document.getElementById("error").innerHTML =
             "<div class='error'>Тест завершен</div>";
+        resetJoinUiState();
         clearJoinSession();
         updateReturnButton();
 
@@ -2792,6 +2933,7 @@ function handlePlayerMessage(raw){
         return;
     }
     if(data.type==="question"){
+        clearLeaderboardSyncTimer();
         presenceTrackingActive = true;
         if(playerDraftHideTimer){
             clearTimeout(playerDraftHideTimer);
@@ -2931,6 +3073,7 @@ function handlePlayerMessage(raw){
         if(type === "wordle"){
             currentWordleAttempts = [];
             currentWordleDraft = "";
+            currentWordleHintPrefix = String(data.wordle_hint_prefix || "");
             currentWordleKeyStates = {};
             currentWordleAnimatedRow = -1;
             currentWordleShakingRow = -1;
@@ -2951,9 +3094,18 @@ function handlePlayerMessage(raw){
                             <div class="wordle-stat-label">Очки за строку</div>
                             <div class="wordle-stat-value" id="wordlePointsValue">${getWordlePointsForAttempt(1)}</div>
                         </div>
+                        <div class="wordle-stat">
+                            <div class="wordle-stat-label">Открыто букв</div>
+                            <div class="wordle-stat-value" id="wordleHintCountValue">${String(data.wordle_hint_prefix || "").length} / ${data.word_length || 0}</div>
+                        </div>
+                        <div class="wordle-stat" id="wordleCurrentScoreCard">
+                            <div class="wordle-stat-label">Ваши очки</div>
+                            <div class="wordle-stat-value" id="wordleCurrentScoreValue">${currentPlayerScore}</div>
+                        </div>
                     </div>
                     <div id="wordleBoardWrap">${renderWordleBoard([], data.max_attempts || 6, data.word_length || 1, "")}</div>
                     <div id="wordleKeyboardWrap">${renderWordleKeyboard()}</div>
+                    <button type="button" id="wordleHintBtn" onclick="buyWordleHint()" style="margin-top:16px;background:linear-gradient(135deg,#f97316,#ef4444);">Открыть букву (-${Number(data.wordle_hint_cost || 350)})</button>
                     <div style="margin-top:16px;font-size:15px;opacity:.82;">Введи слово по подсказке. После проверки цвет букв подскажет, есть ли буква в слове и стоит ли она на своём месте.</div>
                     <button id="wordleSubmitBtn" onclick="answerWordle()" style="margin-top:20px;">Проверить слово</button>
                 </div>
@@ -3005,9 +3157,14 @@ function handlePlayerMessage(raw){
             refreshWordleBoard();
         }, 900);
         const btn = document.getElementById("wordleSubmitBtn");
+        const hintBtn = document.getElementById("wordleHintBtn");
         if(btn && data.finalized){
             btn.classList.add("disabled");
             btn.style.opacity = "0.6";
+        }
+        if(hintBtn && data.finalized){
+            hintBtn.classList.add("disabled");
+            hintBtn.style.opacity = "0.6";
         }
         const input = document.getElementById("wordleTextProxy");
         if(input && data.finalized){
@@ -3020,7 +3177,26 @@ function handlePlayerMessage(raw){
         }
     }
 
+    if(data.type==="wordle_hint_update"){
+        if(data.ok === false){
+            showPlayerToast(data.message || "Подсказка недоступна");
+            return;
+        }
+        currentWordleHintPrefix = String(data.revealed_prefix || currentWordleHintPrefix || "");
+        refreshWordleBoard();
+        showPlayerToast(`Открыта буква: ${currentWordleHintPrefix.length}`);
+        return;
+    }
+
+    if(data.type==="wordle_hint_result"){
+        if(data.ok === false){
+            showPlayerToast(data.message || "Подсказка недоступна");
+        }
+        return;
+    }
+
     if(data.type==="finished"){
+        clearLeaderboardSyncTimer();
         presenceTrackingActive = false;
         try{ localStorage.removeItem("kahoot_last_answer_state"); }catch(e){}
         document.getElementById("content").innerHTML=
@@ -3030,6 +3206,7 @@ function handlePlayerMessage(raw){
     }
 
     if(data.type==="game_over"){
+        clearLeaderboardSyncTimer();
         presenceTrackingActive = false;
         if(playerDraftHideTimer){
             clearTimeout(playerDraftHideTimer);
@@ -3043,6 +3220,7 @@ function handlePlayerMessage(raw){
         let html = "<div class='question-title'>🎉 Игра завершена!</div>";
 
         if(Array.isArray(data.leaderboard) && data.leaderboard.length > 0){
+            syncCurrentPlayerScoreFromLeaderboard(data.leaderboard);
 
             const lb = data.leaderboard;
 
@@ -3142,6 +3320,7 @@ function handlePlayerMessage(raw){
     }
 
     if(data.type==="reveal"){
+        clearLeaderboardSyncTimer();
         presenceTrackingActive = true;
         if(playerDraftHideTimer){
             clearTimeout(playerDraftHideTimer);
@@ -3149,6 +3328,13 @@ function handlePlayerMessage(raw){
         }
         if(Array.isArray(data.team_leaderboard)){
             currentPlayerTeamLeaderboard = data.team_leaderboard;
+        }
+        if(data.points_awarded && typeof data.points_awarded === "object"){
+            const myName = getCurrentPlayerName();
+            if(Object.prototype.hasOwnProperty.call(data.points_awarded, myName)){
+                currentPlayerScore += Number(data.points_awarded[myName] || 0);
+                refreshWordleBoard();
+            }
         }
         // Prevent duplicate reveal processing
         if(data.reveal_id && lastRevealId === data.reveal_id){
@@ -3447,6 +3633,7 @@ setTimeout(()=>{
     // ========================
     if(data.type==="leaderboard"){
         presenceTrackingActive = true;
+        armLeaderboardSyncTimer();
         if(playerDraftHideTimer){
             clearTimeout(playerDraftHideTimer);
             playerDraftHideTimer = null;
@@ -3484,6 +3671,7 @@ setTimeout(()=>{
         const container = document.getElementById("liveLeaderboard");
 
         if(data.leaderboard && data.leaderboard.length){
+            syncCurrentPlayerScoreFromLeaderboard(data.leaderboard);
             renderLiveLeaderboard(data.leaderboard);
         }
 
@@ -3622,7 +3810,7 @@ function answerWordle(){
     const btn = document.getElementById("wordleSubmitBtn");
     if(!btn || !lastQuestionPayload) return;
 
-    const value = currentWordleDraft.trim();
+    const value = `${currentWordleHintPrefix}${currentWordleDraft}`.trim();
     blurWordleInput();
     const expectedLength = Number(lastQuestionPayload.word_length || 0);
     if(!value) return;
@@ -3755,6 +3943,7 @@ function goBack(){
     myAnswerIndex = null;
     document.getElementById("name").value="";
     document.getElementById("pin").value="";
+    resetJoinUiState();
 }
 
 </script>

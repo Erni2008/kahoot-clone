@@ -46,6 +46,7 @@ FUZZY_THRESHOLD_DEFAULT = 88
 WS_SEND_TIMEOUT = 2.0
 ADMIN_LOG_LIMIT = 2000
 WARNING_PENALTY_POINTS = 500
+WORDLE_HINT_COST = 350
 
 def _similarity_percent(a: str, b: str) -> int:
     if not a or not b:
@@ -2412,38 +2413,38 @@ QUIZZES = {
 {
   "question": "Назови игровой термин!",
   "type": "wordle",
-  "prompt": "Механика.",
+  "prompt": "То, что собирается в бою и легко потерять.",
   "correct": "комбо",
-  "time": 900,
+  "time": 150,
   "points": 1000,
   "max_attempts": 6
 },
 {
   "question": "Угадай чемпиона.",
   "type": "wordle",
-  "prompt": "Персонаж.",
+  "prompt": "Чемпион мистического класса.",
   "correct": "Мангог",
-  "time": 900,
+  "time": 150,
   "points": 1000,
   "max_attempts": 6
 },
 {
   "question": "Назови игровой ресурс",
   "type": "wordle",
-  "prompt": "Ресурс.",
+  "prompt": "Базовый игровой ресурс (единственное число).",
 
   "correct": "Единица",
-  "time": 900,
+  "time": 150,
   "points": 1000,
   "max_attempts": 7
 },
 {
   "question": "Назови игровой ресурс",
   "type": "wordle",
-  "prompt": "Ресурс.",
+  "prompt": "Базовый игровой ресурс (единственное число).",
 
   "correct": "Сплав",
-  "time": 900,
+  "time": 150,
   "points": 1000,
   "max_attempts": 6
 },
@@ -2453,35 +2454,35 @@ QUIZZES = {
   "prompt": "Контент.",
 
   "correct": "Горн",
-  "time": 900,
+  "time": 120,
   "points": 1000,
   "max_attempts": 6
 },
 {
   "question": "Угадай персонажа",
   "type": "wordle",
-  "prompt": "Персонаж.",
+  "prompt": "Чемпион космического класса.",
   "correct": "Веном",
-  "time": 900,
+  "time": 150,
   "points": 1000,
   "max_attempts": 6
 },
 {
   "question": "Угадай персонажа",
   "type": "wordle",
-  "prompt": "Персонаж.",
+  "prompt": "Чемпион мистического класса.",
 
   "correct": "Поглотитель",
-  "time": 900,
+  "time": 180,
   "points": 1300,
   "max_attempts": 8
 },
 {
   "question": "Угадай персонажа",
   "type": "wordle",
-  "prompt": "Персонаж.",
+  "prompt": "Чемпион Научного класса.",
   "correct": "Ящер",
-  "time": 900,
+  "time": 120,
   "points": 1000,
   "max_attempts": 6
 },
@@ -2490,137 +2491,137 @@ QUIZZES = {
   "type": "wordle",
   "prompt": "Контент.",
   "correct": "Вариант",
-  "time": 900,
+  "time": 150,
   "points": 1100,
   "max_attempts": 7
 },
 {
   "question": "Угадай слово связанное с игрой",
   "type": "wordle",
-  "prompt": "Ресурс.",
+  "prompt": "Накопительный ресурс.",
 
   "correct": "Жетоны",
-  "time": 900,
+  "time": 120,
   "points": 1000,
   "max_attempts": 6
 },
 {
   "question": "Угадай персонажа",
   "type": "wordle",
-  "prompt": "Персонаж.",
+  "prompt": "Чемпион научного класса",
 
   "correct": "Фотон",
-  "time": 900,
-  "points": 1000,
-  "max_attempts": 6
-},
-{
-  "question": "Угадай контент связанный с игрой",
-  "type": "wordle",
-  "prompt": "Контент.",
-
-  "correct": "Сияние",
-  "time": 900,
+  "time": 120,
   "points": 1000,
   "max_attempts": 6
 },
 {
   "question": "Угадай слово связанное с игрой",
   "type": "wordle",
-  "prompt": "Слово.",
+  "prompt": "НАЗВАНИЕ контента связанного с игрой",
+
+  "correct": "Сияние",
+  "time": 150,
+  "points": 1000,
+  "max_attempts": 6
+},
+{
+  "question": "Угадай слово связанное с игрой",
+  "type": "wordle",
+  "prompt": "Титул.",
 
   "correct": "Доблестный",
-  "time": 900,
+  "time": 180,
   "points": 1200,
   "max_attempts": 8
 },
 {
   "question": "Угадай слово связанное с игрой",
   "type": "wordle",
-  "prompt": "Слово.",
+  "prompt": "Статус",
 
   "correct": "Титул",
-  "time": 900,
+  "time": 120,
   "points": 1000,
   "max_attempts": 6
 },
 {
   "question": "Угадай персонажа",
   "type": "wordle",
-  "prompt": "Персонаж.",
+  "prompt": "Чемпион космического класса.",
 
   "correct": "Нова",
-  "time": 900,
+  "time": 120,
   "points": 1000,
   "max_attempts": 6
 },
 {
   "question": "Угадай персонажа",
   "type": "wordle",
-  "prompt": "Персонаж.",
+  "prompt": "Чемпион технического класса.",
 
   "correct": "Призрак",
-  "time": 900,
+  "time": 150,
   "points": 1000,
   "max_attempts": 7
 },
 {
   "question": "Угадай слово связанное с игрой",
   "type": "wordle",
-  "prompt": "Ресурс.",
+  "prompt": "Расходный ресурс.",
 
   "correct": "Зелье",
-  "time": 900,
+  "time": 120,
   "points": 1000,
   "max_attempts": 6
 },
 {
   "question": "Угадай слово связанное с игрой",
   "type": "wordle",
-  "prompt": "Слово.",
+  "prompt": "Усиление",
 
   "correct": "Ярость",
-  "time": 900,
+  "time": 120,
   "points": 1000,
   "max_attempts": 6
 },
 {
   "question": "Угадай слово связанное с игрой",
   "type": "wordle",
-  "prompt": "Слово.",
+  "prompt": "Укращающее профиль",
 
   "correct": "Аватар",
-  "time": 900,
+  "time": 120,
   "points": 1000,
   "max_attempts": 6
 },
 {
   "question": "Угадай слово связанное с игрой",
   "type": "wordle",
-  "prompt": "Ресурс.",
+  "prompt": "Ключевой ресурс!",
 
   "correct": "Катализатор",
-  "time": 900,
+  "time": 150,
   "points": 1400,
   "max_attempts": 8
 },
 {
   "question": "Угадай слово связанное с игрой",
   "type": "wordle",
-  "prompt": "Слово.",
+  "prompt": "Кто-то предпочитает это, а кто-то нет...",
 
-  "correct": "Глава",
-  "time": 900,
+  "correct": "Союз",
+  "time": 120,
   "points": 1000,
   "max_attempts": 6
 },
 {
   "question": "Угадай слово связанное с игрой",
   "type": "wordle",
-  "prompt": "Слово.",
+  "prompt": "Их всего 5",
 
   "correct": "Нетленный",
-  "time": 900,
+  "time": 150,
   "points": 1200,
   "max_attempts": 8
 },
@@ -2628,40 +2629,40 @@ QUIZZES = {
 {
   "question": "Угадай слово связанное с игрой",
   "type": "wordle",
-  "prompt": "Слово.",
+  "prompt": "Мастерство",
 
   "correct": "Отчаяние",
-  "time": 900,
+  "time": 150,
   "points": 1200,
   "max_attempts": 8
 },
 {
   "question": "Угадай слово связанное с игрой",
   "type": "wordle",
-  "prompt": "Слово.",
+  "prompt": "Мастерство",
 
   "correct": "Отдача",
-  "time": 900,
+  "time": 150,
   "points": 1000,
   "max_attempts": 6
 },
 {
   "question": "Угадай слово связанное с игрой",
   "type": "wordle",
-  "prompt": "Слово.",
+  "prompt": "Эффект - наносящий урон",
 
   "correct": "Разрыв",
-  "time": 900,
+  "time": 150,
   "points": 1000,
   "max_attempts": 6
 },
 {
   "question": "Угадай слово связанное с игрой",
   "type": "wordle",
-  "prompt": "Слово.",
+  "prompt": "Контент(единсвенное число).",
 
   "correct": "Акт",
-  "time": 900,
+  "time": 120,
   "points": 1000,
   "max_attempts": 6
 },
@@ -2669,20 +2670,20 @@ QUIZZES = {
 {
   "question": "Угадай слово связанное с игрой",
   "type": "wordle",
-  "prompt": "Слово.",
+  "prompt": "Эффект",
 
   "correct": "Печать",
-  "time": 900,
+  "time": 120,
   "points": 1000,
   "max_attempts": 6
 },
 {
   "question": "Угадай персонажа",
   "type": "wordle",
-  "prompt": "Персонаж.",
+  "prompt": "Чемпион научного класса - нельзя получить",
 
   "correct": "Бахамет",
-  "time": 900,
+  "time": 150,
   "points": 1000,
   "max_attempts": 7
 },
@@ -2693,27 +2694,27 @@ QUIZZES = {
   "prompt": "Персонаж.",
 
   "correct": "Вокс",
-  "time": 900,
+  "time": 120,
   "points": 1000,
   "max_attempts": 6
 },
 {
-  "question": "Угадай персонажа",
+  "question": "Угадай что-то про чемпиона",
   "type": "wordle",
-  "prompt": "Персонаж.",
+  "prompt": "Что-то вне Земли",
 
   "correct": "Космос",
-  "time": 900,
+  "time": 120,
   "points": 1000,
   "max_attempts": 6
 },
 {
   "question": "Угадай персонажа",
   "type": "wordle",
-  "prompt": "Персонаж.",
+  "prompt": "Базовая боевая механика.",
 
   "correct": "Блок",
-  "time": 900,
+  "time": 120,
   "points": 1000,
   "max_attempts": 6
 },
@@ -3277,6 +3278,9 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
             if isinstance(current_payload, dict):
                 payload_to_send = dict(current_payload)
                 if room_data.get("current_view") == "question":
+                    if payload_to_send.get("question_type") == "wordle":
+                        payload_to_send["wordle_hint_prefix"] = str((room_data.get("wordle_hints") or {}).get(username, "") or "")
+                        payload_to_send["wordle_hint_cost"] = WORDLE_HINT_COST
                     if room_data.get("paused"):
                         payload_to_send["time"] = max(0, int(round(float(room_data.get("remaining_time") or 0))))
                     else:
@@ -3445,6 +3449,53 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
                     "ok": True,
                     "message": "Апелляция отправлена ведущему."
                 })
+                continue
+
+            if role == "player" and data.get("type") == "buy_wordle_hint":
+                quiz = room_data.get("quiz_questions") or QUIZZES.get(room_data.get("quiz"), [])
+                question_index = int(room_data.get("question_index", 0) or 0)
+                current_question = quiz[question_index] if 0 <= question_index < len(quiz) else {}
+                if room_data.get("current_view") != "question" or current_question.get("type") != "wordle":
+                    await websocket.send_json({"type": "wordle_hint_result", "ok": False, "message": "Подсказка доступна только во время wordle-вопроса."})
+                    continue
+                answer_state = room_data.get("answers", {}).get(username) or {}
+                if isinstance(answer_state, dict) and answer_state.get("finalized"):
+                    await websocket.send_json({"type": "wordle_hint_result", "ok": False, "message": "Для этого слова подсказка уже недоступна."})
+                    continue
+                target = apply_alias(normalize_answer(current_question.get("correct")))
+                if not target:
+                    await websocket.send_json({"type": "wordle_hint_result", "ok": False, "message": "Не удалось определить слово."})
+                    continue
+                hints = room_data.setdefault("wordle_hints", {})
+                current_prefix = str(hints.get(username, "") or "")
+                if len(current_prefix) >= len(target):
+                    await websocket.send_json({"type": "wordle_hint_result", "ok": False, "message": "Все буквы уже открыты."})
+                    continue
+                current_score = int(room_data.get("scores", {}).get(username, 0) or 0)
+                if current_score < WORDLE_HINT_COST:
+                    await websocket.send_json({"type": "wordle_hint_result", "ok": False, "message": f"Нужно минимум {WORDLE_HINT_COST} очков."})
+                    continue
+                next_prefix = target[:len(current_prefix) + 1]
+                hints[username] = next_prefix
+                room_data["scores"][username] = current_score - WORDLE_HINT_COST
+                leaderboard = sorted(room_data["scores"].items(), key=lambda x: x[1], reverse=True)
+                await safe_send_json(room_data, websocket, {
+                    "type": "wordle_hint_update",
+                    "ok": True,
+                    "revealed_prefix": next_prefix,
+                    "revealed_count": len(next_prefix),
+                    "cost": WORDLE_HINT_COST,
+                }, f"player:{username}")
+                await broadcast(room, {
+                    "type": "appeal_awarded",
+                    "username": username,
+                    "delta": -WORDLE_HINT_COST,
+                    "reason": "Wordle hint purchase",
+                    "leaderboard": leaderboard,
+                    "team_leaderboard": compute_team_leaderboard(room_data),
+                    "total_scores": room_data["scores"],
+                })
+                log_event("wordle_hint_purchased", room, username=username, revealed_count=len(next_prefix), cost=WORDLE_HINT_COST)
                 continue
 
             # APPEAL (host manual score adjustment)
@@ -4020,6 +4071,7 @@ async def send_question(room):
     display_question_text = f"{index + 1}. {cleaned_question_text}"
 
     room_data["answers"] = {}
+    room_data["wordle_hints"] = {}
     room_data["revealed"] = False
     room_data["current_question_metrics"] = {
         username: {
@@ -4069,6 +4121,7 @@ async def send_question(room):
         "max_select": max_select,
         "word_length": len(apply_alias(normalize_answer(question.get("correct")))) if question.get("type") == "wordle" else None,
         "max_attempts": max(1, int(question.get("max_attempts", 6))) if question.get("type") == "wordle" else None,
+        "wordle_hint_cost": WORDLE_HINT_COST if question.get("type") == "wordle" else None,
     })
     room_data["current_payload"] = {
         "type": "question",
@@ -4086,6 +4139,7 @@ async def send_question(room):
         "max_select": max_select,
         "word_length": len(apply_alias(normalize_answer(question.get("correct")))) if question.get("type") == "wordle" else None,
         "max_attempts": max(1, int(question.get("max_attempts", 6))) if question.get("type") == "wordle" else None,
+        "wordle_hint_cost": WORDLE_HINT_COST if question.get("type") == "wordle" else None,
     }
     room_data["current_view"] = "question"
     for username in room_data.get("players", {}).keys():
