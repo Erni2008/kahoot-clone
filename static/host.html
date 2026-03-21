@@ -3413,8 +3413,15 @@ function handleQuizChange(){
 
 async function createRoom(){
     const quiz = document.getElementById("quizSelect").value;
-    const res = await fetch(`/create-room/${quiz}`);
-    const data = await res.json();
+    let res;
+    let data;
+    try{
+        res = await fetch(`/create-room?quiz=${encodeURIComponent(quiz)}`);
+        data = await res.json();
+    }catch(error){
+        alert("Не удалось создать комнату. Проверьте соединение и обновите страницу.");
+        return;
+    }
 
     // Сервер уже расформировал предыдущие комнаты
     // Чистим интерфейс перед созданием новой
@@ -3440,8 +3447,8 @@ async function createRoom(){
     currentPin = "";
     updatePinBadge();
 
-    if(!data.pin){
-        alert("Ошибка создания комнаты");
+    if(!res || !res.ok || !data.pin){
+        alert((data && data.message) ? data.message : "Ошибка создания комнаты");
         return;
     }
 

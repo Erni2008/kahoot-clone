@@ -3126,8 +3126,9 @@ async def execute_admin_action(room: str, action: str, payload: dict | None = No
 
     return {"ok": False, "error": f"Unknown action: {action}"}
 
-@app.get("/create-room/{quiz}")
-async def create_room(quiz: str, request: Request):
+async def _create_room_impl(quiz: str):
+    if quiz not in QUIZZES:
+        return {"error": "unknown_quiz", "message": "Тест не найден"}
     # ===== РАСФОРМИРОВАНИЕ СУЩЕСТВУЮЩИХ КОМНАТ =====
     for existing_pin in list(rooms.keys()):
         room_data = rooms[existing_pin]
@@ -3205,6 +3206,16 @@ async def create_room(quiz: str, request: Request):
     log_event("room_created", pin, quiz=quiz)
 
     return {"pin": pin}
+
+
+@app.get("/create-room")
+async def create_room_query(quiz: str):
+    return await _create_room_impl(quiz)
+
+
+@app.get("/create-room/{quiz}")
+async def create_room(quiz: str, request: Request):
+    return await _create_room_impl(quiz)
 
 
 @app.post("/close-room/{room}")
