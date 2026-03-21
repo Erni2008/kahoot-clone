@@ -2661,6 +2661,7 @@ let hostCrosswordActiveId = "";
 let hostCrosswordDifficulties = [];
 let hostCrosswordSelectedDifficulty = "";
 let hostCrosswordIntroTimer = null;
+let hostHasShownQuestionIntro = false;
 const WORDLE_KEYBOARD_ROWS = [
     ["й","ц","у","к","е","н","г","ш","щ","з","х"],
     ["ф","ы","в","а","п","р","о","л","д","ж","э"],
@@ -2761,46 +2762,46 @@ function getHostQuestionIntroCopy(type){
     if(type === "crossword"){
         return {
             title: "Кроссворд скоро начнётся",
-            left: "Сначала игроки увидят короткую инструкцию. После отсчёта откроется сетка, и можно будет отвечать по выбранным подсказкам.",
+            left: "Сначала игроки увидят короткую инструкцию. После отсчёта откроется сетка кроссворда, и они смогут выбирать подсказки или клетки, чтобы отвечать по отдельным словам.",
             rightTitle: "Что увидят игроки",
-            right: "Они смогут выбирать подсказки или клетки, переключаться между словами и постепенно заполнять весь кроссворд."
+            right: "Вы можете выбрать для них уровень сложности: Лёгкий, Нормальный или Сложный. Игроки будут постепенно заполнять сетку, а буквы в пересечениях будут вставляться автоматически."
         };
     }
     if(type === "wordle"){
         return {
             title: "Wordle скоро начнётся",
-            left: "Игроки увидят короткое напоминание о правилах, а затем откроется поле для попыток.",
+            left: "Игроки увидят короткое напоминание о правилах, затем поле для попыток и клавиатуру для ввода.",
             rightTitle: "Что увидят игроки",
-            right: "Они будут собирать слово по цветам букв, постепенно сужая варианты."
+            right: "Они будут угадывать слово по цветам букв и постепенно сужать варианты до правильного ответа."
         };
     }
     if(type === "mcq" || type === "fastest" || type === "poll"){
         return {
             title: "Вопрос скоро начнётся",
-            left: "Сейчас будет короткий экран подготовки, а затем у игроков появятся варианты ответов.",
+            left: "Сейчас будет короткий экран подготовки, а затем у игроков появятся варианты ответа.",
             rightTitle: "Что увидят игроки",
-            right: type === "poll" ? "Они просто выберут вариант, который считают подходящим." : "Они выберут один или несколько вариантов ответа."
+            right: type === "poll" ? "Они просто выберут вариант, который считают подходящим." : "Они выберут правильный вариант, а в быстрых раундах важна ещё и скорость ответа."
         };
     }
     if(type === "numeric"){
         return {
             title: "Числовой вопрос скоро начнётся",
-            left: "После отсчёта игроки увидят поле для ввода числа.",
+            left: "После отсчёта игроки увидят поле для ввода числа и должны будут ввести ответ вручную.",
             rightTitle: "Что увидят игроки",
-            right: "Им нужно будет ввести числовой ответ без лишнего текста."
+            right: "Им нужно будет ввести только число, без слов и без дополнительных символов."
         };
     }
     if(type === "text"){
         return {
             title: "Текстовый вопрос скоро начнётся",
-            left: "После отсчёта игроки увидят поле для короткого текстового ответа.",
+            left: "После отсчёта игроки увидят поле для короткого текстового ответа и введут его вручную.",
             rightTitle: "Что увидят игроки",
-            right: "Им нужно будет вписать ответ вручную."
+            right: "Им нужно будет написать ответ максимально точно и без лишних слов."
         };
     }
     return {
         title: "Раунд скоро начнётся",
-        left: "Сейчас будет короткий intro, а затем появится сам вопрос.",
+        left: "Сейчас будет короткий intro, а затем откроется сам вопрос.",
         rightTitle: "Что увидят игроки",
         right: "Они смогут отвечать сразу после окончания отсчёта."
     };
@@ -4612,8 +4613,9 @@ async function createRoom(){
             }
 
             const hostQuestionBody = container.innerHTML;
-            const introDelay = Number(data.question_intro_delay || 0);
+            const introDelay = hostHasShownQuestionIntro ? 0 : Number(data.question_intro_delay || 0);
             if(introDelay > 0){
+                hostHasShownQuestionIntro = true;
                 container.innerHTML = renderHostQuestionIntro(introDelay, type);
                 let countdownLeft = introDelay;
                 const countdownEl = document.getElementById("hostCrosswordIntroCountdown");
@@ -4636,6 +4638,9 @@ async function createRoom(){
                         refreshHostWordleBoard(false);
                     }
                 }, introDelay * 1000);
+            }
+            if(introDelay <= 0){
+                hostHasShownQuestionIntro = true;
             }
 
             startTimer(data.time);
@@ -5364,6 +5369,7 @@ if(data.type==="game_over" || data.type==="finished"){
 
         // 🔹 Завершение теста вручную (end_game)
         if(data.type === "return_to_lobby"){
+            hostHasShownQuestionIntro = false;
 
             // Полный сброс UI ведущего
             document.body.classList.remove("game-mode");
@@ -5419,6 +5425,7 @@ function startGame(){
         alert("Сначала создайте комнату");
         return;
     }
+    hostHasShownQuestionIntro = false;
 
     const playersCount = document.getElementById("players").children.length;
     if(playersCount === 0){
@@ -5612,6 +5619,7 @@ function endGame(){
 }
 
 function resetHost(){
+    hostHasShownQuestionIntro = false;
     clearHostSession();
     document.body.classList.remove("game-mode");
     document.body.classList.remove("show-controls");

@@ -1046,17 +1046,17 @@ QUIZZES = {
             "difficulty_levels": [
                 {
                     "id": "easy",
-                    "label": "Легко",
+                    "label": "Лёгкий",
                     "words": [
-                        {"number": 1, "clue": "Связка действий в бою", "answer": "КОМБО"},
-                        {"number": 2, "clue": "Базовая боевая защита", "answer": "БЛОК"},
-                        {"number": 3, "clue": "Игровой режим", "answer": "ГОРН"},
-                        {"number": 4, "clue": "Космический чемпион", "answer": "НОВА"}
+                        {"number": 1, "clue": "Связка действий в бою", "answer": "КОМБО", "row": 1, "col": 0, "direction": "across"},
+                        {"number": 2, "clue": "Базовая боевая защита", "answer": "БЛОК", "row": 1, "col": 3, "direction": "down"},
+                        {"number": 3, "clue": "Игровой режим", "answer": "ГОРН", "row": 0, "col": 1, "direction": "down"},
+                        {"number": 4, "clue": "Космический чемпион", "answer": "НОВА", "row": 3, "col": 1, "direction": "across"}
                     ]
                 },
                 {
                     "id": "medium",
-                    "label": "Средне",
+                    "label": "Нормальный",
                     "words": [
                         {"number": 1, "clue": "Связка действий в бою", "answer": "КОМБО"},
                         {"number": 2, "clue": "Базовая боевая защита", "answer": "БЛОК"},
@@ -1067,7 +1067,7 @@ QUIZZES = {
                 },
                 {
                     "id": "hard",
-                    "label": "Сложно",
+                    "label": "Сложный",
                     "words": [
                         {"number": 1, "clue": "Связка действий в бою", "answer": "КОМБО"},
                         {"number": 2, "clue": "Базовая боевая защита", "answer": "БЛОК"},
@@ -1102,17 +1102,17 @@ QUIZZES = {
             "difficulty_levels": [
                 {
                     "id": "easy",
-                    "label": "Легко",
+                    "label": "Лёгкий",
                     "words": [
-                        {"number": 1, "clue": "Связка действий в бою", "answer": "КОМБО"},
-                        {"number": 2, "clue": "Базовая боевая защита", "answer": "БЛОК"},
-                        {"number": 3, "clue": "Игровой режим", "answer": "ГОРН"},
-                        {"number": 4, "clue": "Космический чемпион", "answer": "НОВА"}
+                        {"number": 1, "clue": "Связка действий в бою", "answer": "КОМБО", "row": 1, "col": 0, "direction": "across"},
+                        {"number": 2, "clue": "Базовая боевая защита", "answer": "БЛОК", "row": 1, "col": 3, "direction": "down"},
+                        {"number": 3, "clue": "Игровой режим", "answer": "ГОРН", "row": 0, "col": 1, "direction": "down"},
+                        {"number": 4, "clue": "Космический чемпион", "answer": "НОВА", "row": 3, "col": 1, "direction": "across"}
                     ]
                 },
                 {
                     "id": "medium",
-                    "label": "Средне",
+                    "label": "Нормальный",
                     "words": [
                         {"number": 1, "clue": "Связка действий в бою", "answer": "КОМБО"},
                         {"number": 2, "clue": "Базовая боевая защита", "answer": "БЛОК"},
@@ -1123,7 +1123,7 @@ QUIZZES = {
                 },
                 {
                     "id": "hard",
-                    "label": "Сложно",
+                    "label": "Сложный",
                     "words": [
                         {"number": 1, "clue": "Связка действий в бою", "answer": "КОМБО"},
                         {"number": 2, "clue": "Базовая боевая защита", "answer": "БЛОК"},
@@ -1144,16 +1144,16 @@ QUIZZES = {
             "difficulty_levels": [
                 {
                     "id": "easy",
-                    "label": "Легко",
+                    "label": "Лёгкий",
                     "words": [
-                        {"number": 1, "clue": "Расходник", "answer": "ЗЕЛЬЕ"},
-                        {"number": 2, "clue": "Накопительный ресурс", "answer": "ЖЕТОНЫ"},
-                        {"number": 3, "clue": "Ответный эффект", "answer": "ОТДАЧА"}
+                        {"number": 1, "clue": "Ресурс, который тратится на прохождение карт", "answer": "ЭНЕРГИЯ", "row": 0, "col": 0, "direction": "down"},
+                        {"number": 2, "clue": "Ступень развития чемпиона", "answer": "РАНГ", "row": 3, "col": 0, "direction": "across"},
+                        {"number": 3, "clue": "То, вокруг чего строится весь этот проект", "answer": "ИГРА", "row": 2, "col": 3, "direction": "down"}
                     ]
                 },
                 {
                     "id": "medium",
-                    "label": "Средне",
+                    "label": "Нормальный",
                     "words": [
                         {"number": 1, "clue": "Расходник", "answer": "ЗЕЛЬЕ"},
                         {"number": 2, "clue": "Накопительный ресурс", "answer": "ЖЕТОНЫ"},
@@ -1164,7 +1164,7 @@ QUIZZES = {
                 },
                 {
                     "id": "hard",
-                    "label": "Сложно",
+                    "label": "Сложный",
                     "words": [
                         {"number": 1, "clue": "Расходник", "answer": "ЗЕЛЬЕ"},
                         {"number": 2, "clue": "Накопительный ресурс", "answer": "ЖЕТОНЫ"},

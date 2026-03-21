@@ -2217,6 +2217,7 @@ let currentCrosswordActiveId = "";
 let currentCrosswordDifficulties = [];
 let currentCrosswordSelectedDifficulty = "";
 let currentCrosswordIntroTimer = null;
+let hasShownQuestionIntro = false;
 const WORDLE_KEYBOARD_ROWS = [
     ["й","ц","у","к","е","н","г","ш","щ","з","х"],
     ["ф","ы","в","а","п","р","о","л","д","ж","э"],
@@ -2306,54 +2307,58 @@ function getQuestionIntroCopy(type){
     if(type === "crossword"){
         return {
             title: "Кроссворд скоро начнётся",
-            meta: "Выбирайте подсказки или клетки и постепенно заполняйте сетку.",
-            left: "Сначала прочитайте подсказки. После запуска откроется сетка, и вы сможете переключаться между словами и постепенно заполнять кроссворд.",
+            meta: "Нужно выбирать слова по подсказкам и постепенно собирать всю сетку.",
+            left: "После старта откроется кроссворд. Нажимайте на подсказки или прямо на клетки, чтобы выбрать активное слово. Вводите ответ в поле, и буквы сразу будут вставляться в сетку, включая пересечения.",
             rightTitle: "Что делать",
-            right: "Выберите слово по подсказке, введите ответ в активное поле, и буквы сразу появятся в сетке."
+            right: "Ваша задача — разгадать как можно больше слов. Если слово пересекается с другим, общие буквы тоже будут заполняться. Сложность кроссворда выбирает ведущий."
         };
     }
     if(type === "wordle"){
         return {
             title: "Wordle скоро начнётся",
-            meta: "Нужно собрать слово за несколько попыток.",
-            left: "После каждой попытки цвет букв покажет, есть ли буква в слове и на своём ли она месте.",
+            meta: "Нужно угадать слово за ограниченное число попыток.",
+            left: "После каждой попытки цвет букв покажет результат: зелёный — буква стоит на своём месте, жёлтый — буква есть в слове, но находится не там, красный — такой буквы в слове нет.",
             rightTitle: "Что делать",
-            right: "Вводите слово целиком, смотрите на цвета и сужайте варианты до правильного ответа."
+            right: "Вводите слово целиком, анализируйте подсказки по цветам и постепенно сужайте варианты. Внизу будет удобная клавиатура."
         };
     }
     if(type === "mcq" || type === "fastest" || type === "poll"){
         return {
             title: "Вопрос скоро начнётся",
-            meta: "Подготовьтесь выбрать вариант ответа.",
-            left: "После старта появятся варианты. Выберите тот, который считаете правильным.",
+            meta: "Нужно будет выбрать один или несколько вариантов ответа.",
+            left: type === "poll"
+                ? "После старта появятся варианты ответа. Здесь нет правильного или неправильного варианта — важен только ваш выбор."
+                : "После старта появятся варианты. Внимательно прочитайте вопрос и выберите тот ответ, который считаете правильным.",
             rightTitle: "Что делать",
-            right: type === "poll" ? "Просто выберите подходящий вариант. Здесь важен ваш выбор, а не правильность." : "Отвечайте быстро, но без случайных кликов."
+            right: type === "poll"
+                ? "Просто нажмите на подходящий вариант и подтвердите свой выбор."
+                : "Отвечайте быстро, но не наугад. В некоторых раундах важно не только угадать, но и сделать это раньше других."
         };
     }
     if(type === "numeric"){
         return {
             title: "Числовой вопрос скоро начнётся",
-            meta: "Нужно будет ввести число.",
-            left: "Подумайте над ответом заранее, чтобы после старта сразу ввести число.",
+            meta: "Нужно будет вручную ввести числовой ответ.",
+            left: "После старта появится поле ввода. Нужно ввести только число, без слов и лишних символов.",
             rightTitle: "Что делать",
-            right: "Введите числовой ответ без лишнего текста."
+            right: "Подумайте заранее и введите точный числовой ответ как можно быстрее."
         };
     }
     if(type === "text"){
         return {
             title: "Текстовый вопрос скоро начнётся",
-            meta: "Нужно будет вписать ответ вручную.",
-            left: "Подготовьтесь ввести короткий ответ в поле после старта вопроса.",
+            meta: "Нужно будет самостоятельно вписать ответ текстом.",
+            left: "После старта появится поле ввода. Введите короткий и точный ответ без лишних слов, чтобы система легче его распознала.",
             rightTitle: "Что делать",
-            right: "Пишите ответ как можно точнее и без лишних слов."
+            right: "Старайтесь писать ответ аккуратно и по сути. Чем точнее формулировка, тем меньше шанс спорного засчёта."
         };
     }
     return {
         title: "Раунд скоро начнётся",
-        meta: "Подготовьтесь к следующему вопросу.",
-        left: "Через несколько секунд откроется следующий экран вопроса.",
+        meta: "Сейчас откроется следующий формат вопроса.",
+        left: "Через несколько секунд появится сам вопрос и можно будет отвечать.",
         rightTitle: "Что делать",
-        right: "Прочитайте задание и отвечайте после старта."
+        right: "Сначала прочитайте задание до конца, потом отвечайте."
     };
 }
 
@@ -3506,6 +3511,7 @@ function handlePlayerMessage(raw){
     }
 
     if(data.type==="kicked"){
+        hasShownQuestionIntro = false;
         presenceTrackingActive = false;
         currentPlayerTeams = [];
         currentPlayerTeamLeaderboard = [];
@@ -3544,6 +3550,7 @@ function handlePlayerMessage(raw){
     }
 
     if(data.type === "test_aborted"){
+        hasShownQuestionIntro = false;
         presenceTrackingActive = false;
         currentPlayerTeams = [];
         currentPlayerTeamLeaderboard = [];
@@ -3581,6 +3588,7 @@ function handlePlayerMessage(raw){
     }
 
     if(data.type === "room_closed"){
+        hasShownQuestionIntro = false;
         presenceTrackingActive = false;
         currentPlayerTeams = [];
         currentPlayerTeamLeaderboard = [];
@@ -3619,6 +3627,7 @@ function handlePlayerMessage(raw){
     }
 
     if(data.type==="waiting"){
+        hasShownQuestionIntro = false;
         setJoinButtonLoading(false);
         presenceTrackingActive = false;
         if(playerDraftHideTimer){
@@ -3898,9 +3907,10 @@ function handlePlayerMessage(raw){
             `;
         }
 
-        const introDelay = Number(data.question_intro_delay || 0);
+        const introDelay = hasShownQuestionIntro ? 0 : Number(data.question_intro_delay || 0);
         document.getElementById("content").innerHTML = introDelay > 0 ? renderQuestionIntro(introDelay, type) : html;
         if(introDelay > 0){
+            hasShownQuestionIntro = true;
             let countdownLeft = introDelay;
             const countdownEl = document.getElementById("crosswordIntroCountdown");
             const countdownInterval = setInterval(()=>{
@@ -3922,6 +3932,9 @@ function handlePlayerMessage(raw){
                     }
                 }
             }, introDelay * 1000);
+        }
+        if(introDelay <= 0){
+            hasShownQuestionIntro = true;
         }
         if(type === "wordle" && introDelay <= 0){
             refreshWordleBoard();
@@ -4036,6 +4049,7 @@ function handlePlayerMessage(raw){
     }
 
     if(data.type==="game_over"){
+        hasShownQuestionIntro = false;
         clearLeaderboardSyncTimer();
         presenceTrackingActive = false;
         if(playerDraftHideTimer){
@@ -4790,6 +4804,7 @@ function goBack(){
     presenceTrackingActive = false;
     closedByRoom = true;
     hasConfirmedServerSession = false;
+    hasShownQuestionIntro = false;
     wsJoin = null;
     clearJoinSession();
     updateReturnButton();
