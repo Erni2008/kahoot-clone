@@ -240,6 +240,30 @@ let adminRefreshTimer = null;
 let selectedReviewTab = "players";
 let adminReconnectTimer = null;
 let riskFilterMode = "all";
+let adminHeartbeatTimer = null;
+let adminLastPongAt = Date.now();
+const ADMIN_HEARTBEAT_MS = 15000;
+const ADMIN_PONG_TIMEOUT_MS = 45000;
+
+function stopAdminHeartbeat(){
+    if(adminHeartbeatTimer){
+        clearInterval(adminHeartbeatTimer);
+        adminHeartbeatTimer = null;
+    }
+}
+
+function startAdminHeartbeat(){
+    stopAdminHeartbeat();
+    adminHeartbeatTimer = setInterval(()=>{
+        if(!adminSocket || adminSocket.readyState !== WebSocket.OPEN) return;
+        try{
+            adminSocket.send(JSON.stringify({type:"admin_ping", t:Date.now()}));
+        }catch(e){}
+        if(Date.now() - adminLastPongAt > ADMIN_PONG_TIMEOUT_MS){
+            try{ adminSocket.close(); }catch(e){}
+        }
+    }, ADMIN_HEARTBEAT_MS);
+}
 
 function wsBase(){
     const proto = location.protocol === "https:" ? "wss" : "ws";
@@ -848,11 +872,13 @@ function connectAdmin(){
     adminSocket = new WebSocket(`${wsBase()}/ws/admin`);
     setStatus("connecting", true);
     adminSocket.onopen = ()=>{
+        adminLastPongAt = Date.now();
         if(adminReconnectTimer){
             clearTimeout(adminReconnectTimer);
             adminReconnectTimer = null;
         }
         setStatus("connected", true);
+        startAdminHeartbeat();
         startAdminAutoRefresh();
         if(selectedRoom){
             send({type:"admin_action", room:selectedRoom, action:"snapshot"});
@@ -861,6 +887,7 @@ function connectAdmin(){
         }
     };
     adminSocket.onclose = ()=>{
+        stopAdminHeartbeat();
         setStatus("disconnected", false);
         if(adminRefreshTimer){
             clearInterval(adminRefreshTimer);
@@ -871,6 +898,10 @@ function connectAdmin(){
     adminSocket.onerror = ()=> setStatus("error", false);
     adminSocket.onmessage = (event)=>{
         const data = JSON.parse(event.data);
+        if(data.type === "admin_pong"){
+            adminLastPongAt = Date.now();
+            return;
+        }
         if(data.type === "admin_init"){
             applyInit(data);
             return;

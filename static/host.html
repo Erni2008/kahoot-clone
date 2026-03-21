@@ -2146,6 +2146,28 @@ let currentScoreboardData = null;
 let lastUsersAnswersMap = null;
 let lastQuestionText = "";
 let lastQuestionType = "";
+let hostHeartbeatTimer = null;
+let hostLastPongAt = Date.now();
+const HOST_HEARTBEAT_MS = 15000;
+const HOST_PONG_TIMEOUT_MS = 45000;
+
+function stopHostHeartbeat(){
+    if(hostHeartbeatTimer){
+        clearInterval(hostHeartbeatTimer);
+        hostHeartbeatTimer = null;
+    }
+}
+
+function startHostHeartbeat(){
+    stopHostHeartbeat();
+    hostHeartbeatTimer = setInterval(()=>{
+        if(!socket || socket.readyState !== WebSocket.OPEN) return;
+        try{ socket.send(JSON.stringify({type:"ping", t:Date.now()})); }catch(e){}
+        if(Date.now() - hostLastPongAt > HOST_PONG_TIMEOUT_MS){
+            try{ socket.close(); }catch(e){}
+        }
+    }, HOST_HEARTBEAT_MS);
+}
 
 function updatePinBadge(){
     const pinDisplay = document.getElementById("pinDisplay");
@@ -3463,6 +3485,16 @@ async function createRoom(){
 
     const protocol = location.protocol === "https:" ? "wss" : "ws";
     socket = new WebSocket(`${protocol}://${location.host}/ws/host?room=${encodeURIComponent(currentPin)}&username=host`);
+    socket.onopen = ()=>{
+        hostLastPongAt = Date.now();
+        startHostHeartbeat();
+    };
+    socket.onerror = ()=>{
+        try{ socket.close(); }catch(e){}
+    };
+    socket.onclose = ()=>{
+        stopHostHeartbeat();
+    };
 
     // подключаем ведущего как игрока
     const hostName = "Ведущий";
@@ -3501,6 +3533,14 @@ async function createRoom(){
     socket.onmessage = (event)=>{
         const data = JSON.parse(event.data);
         if(!data || typeof data !== "object") return;
+
+        if(data.type === "pong" || data.type === "ping"){
+            hostLastPongAt = Date.now();
+            if(data.type === "ping"){
+                try{ socket.send(JSON.stringify({type:"pong", t:Date.now()})); }catch(e){}
+            }
+            return;
+        }
 
         if(data.type === "error"){
             alert(data.message || "Ошибка");
