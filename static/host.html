@@ -2430,6 +2430,14 @@ button{
 </select>
 <button class="primary" onclick="createRoom()">Создать</button>
 </div>
+<div id="crosswordLobbyDifficultyWrap" style="display:none;margin-top:14px;">
+<label style="display:block;font-size:13px;opacity:.78;margin-bottom:8px;">Сложность кроссворда</label>
+<select id="crosswordLobbyDifficulty" onchange="applyLobbyCrosswordDifficulty()">
+    <option value="easy">Лёгкий</option>
+    <option value="medium">Нормальный</option>
+    <option value="hard">Сложный</option>
+</select>
+</div>
 <div class="pin" id="pinDisplay"></div>
 </div>
 
@@ -2549,6 +2557,29 @@ function restoreHostSession(){
     return false;
 }
 
+function isCrosswordQuizSelected(){
+    const quizSelect = document.getElementById("quizSelect");
+    return !!(quizSelect && quizSelect.value === "Кроссворды");
+}
+
+function updateCrosswordLobbyControls(){
+    const wrap = document.getElementById("crosswordLobbyDifficultyWrap");
+    if(!wrap) return;
+    wrap.style.display = isCrosswordQuizSelected() ? "block" : "none";
+}
+
+function applyLobbyCrosswordDifficulty(){
+    updateCrosswordLobbyControls();
+    const select = document.getElementById("crosswordLobbyDifficulty");
+    if(!select || !isCrosswordQuizSelected()) return;
+    const difficulty = String(select.value || "easy").trim();
+    if(!difficulty || !socket || socket.readyState !== WebSocket.OPEN) return;
+    socket.send(JSON.stringify({
+        type: "set_crossword_difficulty",
+        difficulty_id: difficulty
+    }));
+}
+
 function stopHostHeartbeat(){
     if(hostHeartbeatTimer){
         clearInterval(hostHeartbeatTimer);
@@ -2575,6 +2606,7 @@ function connectHostSockets(){
     socket.onopen = ()=>{
         hostLastPongAt = Date.now();
         startHostHeartbeat();
+        applyLobbyCrosswordDifficulty();
     };
     socket.onerror = ()=>{
         try{ socket.close(); }catch(e){}
@@ -2858,7 +2890,7 @@ function renderHostCrosswordQuestion(crossword, values, readonly){
                     <div class="crossword-help-text">Выбирайте подсказку из списка или нажимайте по клеткам, чтобы быстро переключаться между словами и видеть заполнение сетки.</div>
                     ${Array.isArray(hostCrosswordDifficulties) && hostCrosswordDifficulties.length ? `
                         <div class="crossword-difficulties">
-                            ${hostCrosswordDifficulties.map((item)=>`<button type="button" ${readonly ? "disabled" : ""} class="crossword-difficulty-chip${item.id === hostCrosswordSelectedDifficulty ? " active" : ""}" onclick="setHostCrosswordDifficulty('${item.id}')">${item.label}</button>`).join("")}
+                            ${hostCrosswordDifficulties.map((item)=>`<div class="crossword-difficulty-chip${item.id === hostCrosswordSelectedDifficulty ? " active" : ""}">${item.label}</div>`).join("")}
                         </div>
                     ` : ""}
                 </div>
@@ -4171,9 +4203,11 @@ document.addEventListener("DOMContentLoaded", ()=>{
     }
 
     updateAppealQueueButton();
+    updateCrosswordLobbyControls();
 });
 
 function handleQuizChange(){
+    updateCrosswordLobbyControls();
     // If no room created yet, do nothing
     if(!currentPin){
         return;
@@ -5425,6 +5459,7 @@ function startGame(){
         alert("Сначала создайте комнату");
         return;
     }
+    applyLobbyCrosswordDifficulty();
     hostHasShownQuestionIntro = false;
 
     const playersCount = document.getElementById("players").children.length;

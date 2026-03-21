@@ -258,14 +258,40 @@ def auto_layout_crossword_words(words: list[dict]) -> list[dict]:
 
     placed: list[dict] = []
     occupied: dict[tuple[int, int], str] = {}
+    occupied_by_direction: dict[tuple[int, int], set[str]] = {}
+
+    def has_neighbor(cell_row: int, cell_col: int, neighbors: list[tuple[int, int]]) -> bool:
+        return any((cell_row + d_row, cell_col + d_col) in occupied for d_row, d_col in neighbors)
 
     def can_place(word: str, row: int, col: int, direction: str) -> bool:
+        before_row = row - (1 if direction == "down" else 0)
+        before_col = col - (1 if direction == "across" else 0)
+        after_row = row + (len(word) if direction == "down" else 0)
+        after_col = col + (len(word) if direction == "across" else 0)
+
+        if (before_row, before_col) in occupied:
+            return False
+        if (after_row, after_col) in occupied:
+            return False
+
         for offset, letter in enumerate(word):
             cell_row = row + (offset if direction == "down" else 0)
             cell_col = col + (offset if direction == "across" else 0)
             existing = occupied.get((cell_row, cell_col))
-            if existing and existing.lower() != letter.lower():
-                return False
+            if existing:
+                if existing.lower() != letter.lower():
+                    return False
+                existing_dirs = occupied_by_direction.get((cell_row, cell_col), set())
+                if direction in existing_dirs:
+                    return False
+                continue
+
+            if direction == "across":
+                if has_neighbor(cell_row, cell_col, [(-1, 0), (1, 0)]):
+                    return False
+            else:
+                if has_neighbor(cell_row, cell_col, [(0, -1), (0, 1)]):
+                    return False
         return True
 
     def count_intersections(word: str, row: int, col: int, direction: str) -> int:
@@ -288,6 +314,7 @@ def auto_layout_crossword_words(words: list[dict]) -> list[dict]:
             cell_row = row + (offset if direction == "down" else 0)
             cell_col = col + (offset if direction == "across" else 0)
             occupied[(cell_row, cell_col)] = letter
+            occupied_by_direction.setdefault((cell_row, cell_col), set()).add(direction)
 
     sorted_words = sorted(words, key=lambda item: (-item["length"], item["number"]))
     first = sorted_words[0]
@@ -1109,10 +1136,13 @@ QUIZZES = {
                     "id": "easy",
                     "label": "Лёгкий",
                     "words": [
-                        {"number": 1, "clue": "Связка действий в бою", "answer": "КОМБО"},
-                        {"number": 2, "clue": "Базовая боевая защита", "answer": "БЛОК"},
-                        {"number": 3, "clue": "Игровой режим", "answer": "ГОРН"},
-                        {"number": 4, "clue": "Космический чемпион", "answer": "НОВА"}
+                        {"number": 1, "clue": "Космический злодей, известный как убийца богов", "answer": "ГОРР"},
+                        {"number": 2, "clue": "Контентный режим с характерным названием, связанным с Дэдпулом", "answer": "ДЕДПУЛУЗА"},
+                        {"number": 3, "clue": "Основной способ получения новых чемпионов", "answer": "КРИСТАЛЛ"},
+                        {"number": 4, "clue": "Чемпион, основанный на образе бога войны", "answer": "АРЕС"},
+                        {"number": 5, "clue": "Чемпион, который вешает на противника На прицеле", "answer": "СОКОЛ"},
+                        {"number": 6, "clue": "Эффект, временно лишающий возможности действовать", "answer": "ОГЛУШЕНИЕ"},
+                        {"number": 7, "clue": "Мастерство, которое усиливает атаку по противнику с низким здоровьем", "answer": "УБИЙЦА"}
                     ]
                 },
                 {
@@ -4003,8 +4033,6 @@ async def _websocket_endpoint_impl(websocket: WebSocket, role: str, room: str, u
                 continue
 
             if role == "host" and data.get("type") == "set_crossword_difficulty":
-                if room_data.get("current_view") != "question":
-                    continue
                 quiz = room_data.get("quiz_questions") or QUIZZES.get(room_data.get("quiz"), [])
                 question_index = int(room_data.get("question_index", 0) or 0)
                 current_question = quiz[question_index] if 0 <= question_index < len(quiz) else {}
@@ -4018,6 +4046,9 @@ async def _websocket_endpoint_impl(websocket: WebSocket, role: str, room: str, u
                 if selected is None:
                     continue
                 room_data["crossword_difficulty_id"] = selected["id"]
+                if room_data.get("current_view") != "question":
+                    log_event("crossword_difficulty_selected_in_lobby", room, difficulty_id=selected["id"], label=selected["label"])
+                    continue
                 room_data["answers"] = {}
                 crossword_payload = build_crossword_payload(current_question, include_answers=False, difficulty_id=selected["id"])
                 update_payload = {
