@@ -359,12 +359,54 @@ function ensureRoom(){
 }
 
 function send(payload){
-    if(adminSocket && adminSocket.readyState === WebSocket.OPEN){
-        adminSocket.send(JSON.stringify(payload));
+    if(!payload || typeof payload !== "object") return false;
+    if(payload.type === "admin_refresh"){
+        fetchAdminSnapshot();
         return true;
     }
-    byId("actionResult").textContent = "Admin websocket не подключён.";
+    if(payload.type === "admin_action"){
+        postAdminAction(payload);
+        return true;
+    }
     return false;
+}
+
+async function fetchAdminSnapshot(){
+    try{
+        const response = await fetch("/admin-snapshot", { cache: "no-store" });
+        const data = await response.json();
+        applyInit(data);
+        setStatus("connected (http)", true);
+        return true;
+    }catch(error){
+        console.error("Admin snapshot fetch failed", error);
+        setStatus("disconnected (http)", false);
+        return false;
+    }
+}
+
+async function postAdminAction(payload){
+    try{
+        const response = await fetch("/admin-action", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+            cache: "no-store"
+        });
+        const data = await response.json();
+        byId("actionResult").textContent = pretty(data);
+        if(data.result && data.result.snapshot){
+            upsertRoom(data.result.snapshot);
+        } else {
+            fetchAdminSnapshot();
+        }
+        return true;
+    }catch(error){
+        console.error("Admin action failed", error);
+        byId("actionResult").textContent = "HTTP admin request failed.";
+        setStatus("disconnected (http)", false);
+        return false;
+    }
 }
 
 function downloadRoomExport(){
@@ -861,89 +903,14 @@ function startAdminAutoRefresh(){
         clearInterval(adminRefreshTimer);
     }
     adminRefreshTimer = setInterval(()=>{
-        if(selectedRoom){
-            send({type:"admin_action", room:selectedRoom, action:"snapshot"});
-        } else {
-            send({type:"admin_refresh"});
-        }
+        fetchAdminSnapshot();
     }, 3000);
 }
 
 function connectAdmin(){
-    if(adminSocket && (adminSocket.readyState === WebSocket.OPEN || adminSocket.readyState === WebSocket.CONNECTING)){
-        return;
-    }
-    adminManualReconnect = false;
-    adminSocket = new WebSocket(`${wsBase()}/ws/admin`);
     setStatus("connecting", true);
-    adminSocket.onopen = ()=>{
-        adminLastPongAt = Date.now();
-        if(adminReconnectTimer){
-            clearTimeout(adminReconnectTimer);
-            adminReconnectTimer = null;
-        }
-        setStatus("connected", true);
-        startAdminHeartbeat();
-        startAdminAutoRefresh();
-        if(selectedRoom){
-            send({type:"admin_action", room:selectedRoom, action:"snapshot"});
-        } else {
-            send({type:"admin_refresh"});
-        }
-    };
-    adminSocket.onclose = (event)=>{
-        stopAdminHeartbeat();
-        adminSocket = null;
-        const closeCode = event && typeof event.code !== "undefined" ? event.code : "unknown";
-        const closeReason = event && event.reason ? ` ${event.reason}` : "";
-        setStatus(`disconnected (${closeCode}${closeReason})`, false);
-        if(adminRefreshTimer){
-            clearInterval(adminRefreshTimer);
-            adminRefreshTimer = null;
-        }
-        if(!adminManualReconnect){
-            adminReconnectTimer = setTimeout(connectAdmin, 1500);
-        }
-    };
-    adminSocket.onerror = (event)=>{
-        console.error("Admin websocket error", event);
-        setStatus("error", false);
-    };
-    adminSocket.onmessage = (event)=>{
-        const data = JSON.parse(event.data);
-        if(data.type === "admin_pong"){
-            adminLastPongAt = Date.now();
-            return;
-        }
-        if(data.type === "admin_init"){
-            applyInit(data);
-            return;
-        }
-        if(data.type === "admin_log"){
-            pushLog(data.entry);
-            return;
-        }
-        if(data.type === "room_snapshot"){
-            upsertRoom(data.snapshot);
-            return;
-        }
-        if(data.type === "room_removed"){
-            currentRooms = currentRooms.filter(item => item.room !== data.room);
-            if(selectedRoom === data.room) selectedRoom = "";
-            ensureSelectedRoom();
-            renderRooms();
-            renderSelectedRoom();
-            return;
-        }
-        if(data.type === "admin_action_result"){
-            byId("actionResult").textContent = pretty(data);
-            if(data.result && data.result.snapshot){
-                upsertRoom(data.result.snapshot);
-            } else {
-                sendRefresh();
-            }
-        }
-    };
+    fetchAdminSnapshot();
+    startAdminAutoRefresh();
 }
 
 function sendRefresh(){

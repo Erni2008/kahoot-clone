@@ -2844,6 +2844,28 @@ async def admin_page():
     return html_no_cache_response("static/admin.html")
 
 
+@app.get("/admin-snapshot")
+async def admin_snapshot():
+    return build_server_snapshot()
+
+
+@app.post("/admin-action")
+async def admin_action_http(request: Request):
+    try:
+        data = await request.json()
+    except Exception:
+        return {"ok": False, "error": "Invalid JSON"}
+    room = str(data.get("room") or "").strip()
+    action = str(data.get("action") or "").strip()
+    result = await execute_admin_action(room, action, data)
+    return {
+        "type": "admin_action_result",
+        "room": room,
+        "action": action,
+        "result": result,
+    }
+
+
 async def execute_admin_action(room: str, action: str, payload: dict | None = None) -> dict:
     payload = payload or {}
     if room not in rooms:
