@@ -1369,7 +1369,7 @@ button,
 <input id="name" placeholder="Ваш ник">
 <input id="pin" placeholder="Код комнаты">
 <br>
-<button onclick="join()">Войти</button>
+<button id="joinBtn" onclick="join()">Войти</button>
 <button id="returnBtn" onclick="returnToSavedGame()" style="display:none;">Вернуться в игру</button>
 <div id="error"></div>
 <div class="fair-play-note">
@@ -1494,6 +1494,7 @@ function renderFatalPlayerError(message){
     if(error){
       error.innerHTML = `<div class='error'>${String(message || "Ошибка загрузки страницы")}</div>`;
     }
+    setJoinButtonLoading(false);
     resetJoinUiState();
     return;
   }
@@ -1512,6 +1513,7 @@ function renderFatalPlayerError(message){
 }
 
 function resetJoinUiState(){
+  setJoinButtonLoading(false);
   const nameInput = document.getElementById("name");
   const pinInput = document.getElementById("pin");
   if(nameInput){
@@ -1536,6 +1538,15 @@ function updateReturnButton(){
   const btn = document.getElementById("returnBtn");
   if(!btn) return;
   btn.style.display = (wsJoin && wsJoin.pin && wsJoin.name) ? "inline-block" : "none";
+}
+
+function setJoinButtonLoading(loading){
+  const btn = document.getElementById("joinBtn");
+  if(!btn) return;
+  btn.disabled = !!loading;
+  btn.textContent = loading ? "Подключение..." : "Войти";
+  btn.style.opacity = loading ? "0.7" : "1";
+  btn.style.cursor = loading ? "wait" : "pointer";
 }
 
 function returnToSavedGame(){
@@ -2723,6 +2734,7 @@ function handlePlayerMessage(raw){
         hasConfirmedServerSession = true;
         saveJoinSession();
         updateReturnButton();
+        setJoinButtonLoading(false);
     }
 
     // 🔹 Appeal applied by host — update leaderboard live
@@ -2900,6 +2912,7 @@ function handlePlayerMessage(raw){
     }
 
     if(data.type==="waiting"){
+        setJoinButtonLoading(false);
         presenceTrackingActive = false;
         if(playerDraftHideTimer){
             clearTimeout(playerDraftHideTimer);
@@ -2968,6 +2981,7 @@ function handlePlayerMessage(raw){
         return;
     }
     if(data.type==="question"){
+        setJoinButtonLoading(false);
         try{
         clearLeaderboardSyncTimer();
         presenceTrackingActive = true;
@@ -3759,7 +3773,10 @@ function join(){
     }
 
     document.getElementById("error").innerHTML = "";
-    document.getElementById("content").innerHTML = "";
+    setJoinButtonLoading(true);
+    document.getElementById("joinSection").style.display = "none";
+    document.getElementById("gameSection").style.display = "block";
+    setWaitingContent("Подключение к игре...");
     currentPlayerTeams = [];
     currentPlayerTeamLeaderboard = [];
 
@@ -3973,6 +3990,7 @@ function startTimer(seconds){
     },1000);
 }
 function showError(msg){
+    setJoinButtonLoading(false);
     document.getElementById("error").innerHTML=
         `<div class="error">${msg}</div>`;
 }
