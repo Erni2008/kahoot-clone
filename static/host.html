@@ -3456,11 +3456,11 @@ async function createRoom(){
     updatePinBadge();
 
     const protocol = location.protocol === "https:" ? "wss" : "ws";
-    socket = new WebSocket(`${protocol}://${location.host}/ws/host/${currentPin}/host`);
+    socket = new WebSocket(`${protocol}://${location.host}/ws/host?room=${encodeURIComponent(currentPin)}&username=host`);
 
     // подключаем ведущего как игрока
     const hostName = "Ведущий";
-    playerSocket = new WebSocket(`${protocol}://${location.host}/ws/player/${currentPin}/${encodeURIComponent(hostName)}`);
+    playerSocket = new WebSocket(`${protocol}://${location.host}/ws/player?room=${encodeURIComponent(currentPin)}&username=${encodeURIComponent(hostName)}`);
 
     playerSocket.onmessage = (event)=>{
         const data = JSON.parse(event.data);

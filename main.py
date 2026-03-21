@@ -3223,8 +3223,7 @@ async def close_room(room: str):
     closed = await close_room_and_notify(room, "Тест завершен")
     return {"ok": closed}
 
-@app.websocket("/ws/{role}/{room}/{username}")
-async def websocket_endpoint(websocket: WebSocket, role: str, room: str, username: str):
+async def _websocket_endpoint_impl(websocket: WebSocket, role: str, room: str, username: str):
     await websocket.accept()
 
     if room not in rooms:
@@ -4002,6 +4001,26 @@ async def websocket_endpoint(websocket: WebSocket, role: str, room: str, usernam
                 del rooms[room]
                 await broadcast_admin({"type": "room_removed", "room": room})
                 log_event("room_closed_after_host_disconnect", room)
+
+
+@app.websocket("/ws/{role}/{room}/{username}")
+async def websocket_endpoint(websocket: WebSocket, role: str, room: str, username: str):
+    await _websocket_endpoint_impl(websocket, role, room, username)
+
+
+@app.websocket("/ws/{role}")
+async def websocket_endpoint_query(websocket: WebSocket, role: str):
+    room = str(websocket.query_params.get("room") or "").strip()
+    username = str(websocket.query_params.get("username") or "").strip()
+    if not room or not username:
+        await websocket.accept()
+        await websocket.send_json({
+            "type": "error",
+            "message": "Не переданы room или username"
+        })
+        await websocket.close()
+        return
+    await _websocket_endpoint_impl(websocket, role, room, username)
 
 
 @app.websocket("/ws/admin")
