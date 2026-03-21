@@ -1402,6 +1402,7 @@ let presenceSuspended = false;
 let presenceTrackingActive = false;
 let leaderboardSyncTimer = null;
 let currentPlayerScore = 0;
+let hasSeenInitialTeamAssignment = false;
 
 let heartbeatTimer = null;
 let lastPongAt = Date.now();
@@ -2883,9 +2884,13 @@ function handlePlayerMessage(raw){
     }
 
     if(data.type==="team_assignment"){
+        const hadTeamsBefore = Array.isArray(currentPlayerTeams) && currentPlayerTeams.length > 0;
         currentPlayerTeams = Array.isArray(data.teams) ? data.teams : [];
         currentPlayerTeamLeaderboard = Array.isArray(data.team_leaderboard) ? data.team_leaderboard : [];
-        showPlayerToast(data.enabled ? "Команды обновлены" : "Командный режим выключен");
+        if(hasSeenInitialTeamAssignment && data.enabled && (currentPlayerTeams.length > 0 || hadTeamsBefore)){
+            showPlayerToast("Команды обновлены");
+        }
+        hasSeenInitialTeamAssignment = true;
         if(data.enabled && currentPlayerTeams.length){
             showPlayerDraftScreen();
         } else {

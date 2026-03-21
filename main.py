@@ -4473,6 +4473,10 @@ async def notify_host_player_connection(room: str, username: str, status: str):
     room_data = rooms.get(room)
     if not room_data or not room_data.get("host"):
         return
+    if room_data.get("status") != "active":
+        return
+    if room_data.get("current_view") not in {"question", "reveal", "leaderboard", "game_over"}:
+        return
     await safe_send_json(room_data, room_data["host"], {
         "type": "player_connection",
         "username": username,
