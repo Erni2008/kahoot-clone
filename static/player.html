@@ -1726,8 +1726,8 @@ document.addEventListener("DOMContentLoaded", ()=>{
 });
 
 window.addEventListener("error", (event)=>{
-  const message = event?.message || "Ошибка в player UI";
-  console.error("Global player error:", event?.error || event);
+  const message = (event && event.message) ? event.message : "Ошибка в player UI";
+  console.error("Global player error:", (event && event.error) ? event.error : event);
   if(message === "Script error." || message === "Script error"){
     const error = document.getElementById("error");
     if(error){
@@ -1740,7 +1740,7 @@ window.addEventListener("error", (event)=>{
 });
 
 window.addEventListener("unhandledrejection", (event)=>{
-  const reason = event?.reason;
+  const reason = event && event.reason;
   const message = typeof reason === "string"
     ? reason
     : (reason && reason.message) ? reason.message : "Необработанная ошибка";
@@ -3041,8 +3041,8 @@ function handlePlayerMessage(raw){
         if(data.image){
             const zoom = data.image_zoom || 3;
             const position = data.image_position || "50% 50%";
-            const offsetX = data.image_offset?.x || 0;
-            const offsetY = data.image_offset?.y || 0;
+            const offsetX = data.image_offset && typeof data.image_offset.x !== "undefined" ? data.image_offset.x : 0;
+            const offsetY = data.image_offset && typeof data.image_offset.y !== "undefined" ? data.image_offset.y : 0;
 
             const [posX, posY] = position.split(" ");
             const finalPosX = `calc(${posX} + ${offsetX}px)`;
@@ -3432,7 +3432,8 @@ function handlePlayerMessage(raw){
             document.getElementById("content").appendChild(resultDiv);
 
             if(data.question_type === "wordle"){
-                const attempts = Array.isArray(data.users_answers?.[myName]) ? data.users_answers[myName] : [];
+                const userAnswers = data.users_answers && data.users_answers[myName];
+                const attempts = Array.isArray(userAnswers) ? userAnswers : [];
                 const boardWrap = document.createElement("div");
                 boardWrap.style.marginTop = "18px";
                 boardWrap.innerHTML = renderWordleBoard(attempts, data.max_attempts || 6, data.word_length || String(data.correct_value || "").length || 1);

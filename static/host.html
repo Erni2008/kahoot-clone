@@ -2720,9 +2720,9 @@ function showAppealToast(text){
 
 function showAppealRequestToast(payload){
     // payload: {username, answer, reason, question, question_type}
-    const username = payload?.username || "Игрок";
-    const answer = (payload?.answer ?? "");
-    const reason = (payload?.reason ?? "");
+    const username = (payload && payload.username) ? payload.username : "Игрок";
+    const answer = (payload && typeof payload.answer !== "undefined" && payload.answer !== null) ? payload.answer : "";
+    const reason = (payload && typeof payload.reason !== "undefined" && payload.reason !== null) ? payload.reason : "";
 
     let el = document.getElementById("appealReqToast");
     if(!el){
@@ -2798,7 +2798,7 @@ function rerenderAppealQueueIfOpen(){
 }
 
 function resolvePendingAppeal(payload){
-    const appealId = Number(payload?.appeal_id);
+    const appealId = Number(payload && payload.appeal_id);
     let item = null;
 
     if(Number.isFinite(appealId)){
@@ -2806,10 +2806,10 @@ function resolvePendingAppeal(payload){
     }
 
     if(!item){
-        item = removePendingAppeal(payload?.username, Number(payload?.question_index));
+        item = removePendingAppeal(payload && payload.username, Number(payload && payload.question_index));
     } else {
         item.resolved = true;
-        item.resolution = payload?.resolution || "resolved";
+        item.resolution = (payload && payload.resolution) ? payload.resolution : "resolved";
         updateAppealQueueButton();
     }
 
@@ -2875,10 +2875,10 @@ function focusPlayerAnswerRow(username, answerText, reasonText){
 
 function openAppealModal(payload, opts){
     const options = (opts && typeof opts === "object") ? opts : {};
-    const username = payload?.username || "Игрок";
-    const answer = (payload?.answer ?? "");
-    const reason = (payload?.reason ?? "");
-    const question = payload?.question || "";
+    const username = (payload && payload.username) ? payload.username : "Игрок";
+    const answer = (payload && typeof payload.answer !== "undefined" && payload.answer !== null) ? payload.answer : "";
+    const reason = (payload && typeof payload.reason !== "undefined" && payload.reason !== null) ? payload.reason : "";
+    const question = (payload && payload.question) ? payload.question : "";
 
     const getCorrectPoints = ()=>{
         const v = Number(window.__appealCorrectPoints);
@@ -2948,7 +2948,7 @@ function openAppealModal(payload, opts){
             e.preventDefault();
             const pts = getCorrectPoints();
             sendAppeal(username, pts, `апелляция: засчитать как правильный • ${baseReason}`);
-            markAppealResolved(payload?.local_id, "approved");
+            markAppealResolved(payload && payload.local_id, "approved");
             showAppealToast(`Апелляция: ${username} +${pts} очков`);
             close();
         });
@@ -2959,7 +2959,7 @@ function openAppealModal(payload, opts){
             e.preventDefault();
             const pts = Math.abs(getCorrectPoints());
             sendAppeal(username, -pts, `апелляция: снять правильный • ${baseReason}`);
-            markAppealResolved(payload?.local_id, "approved");
+            markAppealResolved(payload && payload.local_id, "approved");
             showAppealToast(`Апелляция: ${username} -${pts} очков`);
             close();
         });
@@ -2968,10 +2968,10 @@ function openAppealModal(payload, opts){
     if(okBtn){
         okBtn.addEventListener("click", (e)=>{
             e.preventDefault();
-            const v = Number(customInput?.value);
+            const v = Number(customInput ? customInput.value : "");
             if(!Number.isFinite(v) || v === 0) return;
             sendAppeal(username, Math.trunc(v), `апелляция: ручная • ${baseReason}`);
-            markAppealResolved(payload?.local_id, "approved");
+            markAppealResolved(payload && payload.local_id, "approved");
             const sign = v > 0 ? "+" : "";
             showAppealToast(`Апелляция: ${username} ${sign}${Math.trunc(v)} очков`);
             if(customInput) customInput.value = "";
@@ -3017,7 +3017,8 @@ function openAppealQueue(){
 
     const close = ()=>{ try{ backdrop.remove(); }catch(e){} };
     backdrop.addEventListener("click", (e)=>{ if(e.target === backdrop) close(); });
-    modal.querySelector("#appealQueueCloseBtn")?.addEventListener("click", close);
+    const closeBtn = modal.querySelector("#appealQueueCloseBtn");
+    if(closeBtn) closeBtn.addEventListener("click", close);
 
     const listEl = modal.querySelector("#appealQueueList");
     const searchEl = modal.querySelector("#appealQueueSearch");
@@ -3025,8 +3026,8 @@ function openAppealQueue(){
 
     const render = ()=>{
         if(!listEl) return;
-        const search = String(searchEl?.value || "").trim().toLowerCase();
-        const onlyNew = !!onlyNewEl?.checked;
+        const search = String(searchEl ? (searchEl.value || "") : "").trim().toLowerCase();
+        const onlyNew = !!(onlyNewEl && onlyNewEl.checked);
 
         const rows = pendingAppeals.filter((item)=>{
             if(onlyNew && item.resolved) return false;
@@ -3056,8 +3057,8 @@ function openAppealQueue(){
         }
 
         listEl.innerHTML = rows.map((item)=>{
-            const safeAnswer = String(item.answer ?? "").trim() || "—";
-            const safeReason = String(item.reason ?? "").trim() || "без комментария";
+            const safeAnswer = String(typeof item.answer !== "undefined" && item.answer !== null ? item.answer : "").trim() || "—";
+            const safeReason = String(typeof item.reason !== "undefined" && item.reason !== null ? item.reason : "").trim() || "без комментария";
             const status = item.resolution === "approved"
                 ? "Одобрена"
                 : item.resolution === "rejected"
@@ -3104,24 +3105,28 @@ function openAppealQueue(){
             const item = pendingAppeals.find((appeal)=>appeal.local_id === localId);
             if(!item) return;
 
-            row.querySelector('[data-action="open"]')?.addEventListener("click", ()=>{
+            const openBtn = row.querySelector('[data-action="open"]');
+            if(openBtn) openBtn.addEventListener("click", ()=>{
                 openAppealModal(item);
             });
-            row.querySelector('[data-action="grant"]')?.addEventListener("click", ()=>{
+            const grantBtn = row.querySelector('[data-action="grant"]');
+            if(grantBtn) grantBtn.addEventListener("click", ()=>{
                 const pts = Number(window.__appealCorrectPoints);
                 const amount = (Number.isFinite(pts) && pts > 0) ? Math.trunc(pts) : 1000;
                 sendAppeal(item.username, amount, "апелляция: быстрое начисление");
                 markAppealResolved(localId, "approved");
                 render();
             });
-            row.querySelector('[data-action="deduct"]')?.addEventListener("click", ()=>{
+            const deductBtn = row.querySelector('[data-action="deduct"]');
+            if(deductBtn) deductBtn.addEventListener("click", ()=>{
                 const pts = Number(window.__appealCorrectPoints);
                 const amount = (Number.isFinite(pts) && pts > 0) ? Math.trunc(pts) : 1000;
                 sendAppeal(item.username, -Math.abs(amount), "апелляция: быстрое снятие");
                 markAppealResolved(localId, "approved");
                 render();
             });
-            row.querySelector('[data-action="dismiss"]')?.addEventListener("click", ()=>{
+            const dismissBtn = row.querySelector('[data-action="dismiss"]');
+            if(dismissBtn) dismissBtn.addEventListener("click", ()=>{
                 markAppealResolved(localId, "rejected");
                 showAppealToast(`Апелляция закрыта: ${item.username}`);
                 render();
@@ -3129,8 +3134,8 @@ function openAppealQueue(){
         });
     };
 
-    searchEl?.addEventListener("input", render);
-    onlyNewEl?.addEventListener("change", render);
+    if(searchEl) searchEl.addEventListener("input", render);
+    if(onlyNewEl) onlyNewEl.addEventListener("change", render);
     render();
 }
 
@@ -3295,9 +3300,10 @@ function applyLeaderboardUpdate(leaderboard){
     });
     mini.innerHTML = html;
     applyTopPlaceStyles(mini);
-    const leaderChanged = showLeaderChangeFlash(leaderboard[0]?.[0], leaderboard);
+    const leaderName = (leaderboard && leaderboard[0] && leaderboard[0][0]) ? leaderboard[0][0] : null;
+    const leaderChanged = showLeaderChangeFlash(leaderName, leaderboard);
     if(leaderChanged){
-        triggerLeaderImpact(leaderboard[0]?.[0]);
+        triggerLeaderImpact(leaderName);
     }
     window.previousLeaderboardOrder = leaderboard.map(p => p[0]);
 }
@@ -3697,8 +3703,8 @@ async function createRoom(){
             if(hasImage){
                 const zoom = data.image_zoom || 3;
                 const position = data.image_position || "50% 50%";
-                const offsetX = data.image_offset?.x || 0;
-                const offsetY = data.image_offset?.y || 0;
+                const offsetX = data.image_offset && typeof data.image_offset.x !== "undefined" ? data.image_offset.x : 0;
+                const offsetY = data.image_offset && typeof data.image_offset.y !== "undefined" ? data.image_offset.y : 0;
 
                 const [posX, posY] = position.split(" ");
 
@@ -3892,9 +3898,14 @@ async function createRoom(){
 
             // === APPEAL: points for a correct answer (use per-question points from quiz)
             // Prefer explicit points in payload, then remember from last question, then fallback.
-            window.__appealCorrectPoints = Number(
-                (data.points ?? data.question_points ?? data.correct_points ?? data.points_correct ?? data.base_points ?? data.points_per_correct)
-            );
+            const explicitAppealPoints =
+                typeof data.points !== "undefined" && data.points !== null ? data.points :
+                typeof data.question_points !== "undefined" && data.question_points !== null ? data.question_points :
+                typeof data.correct_points !== "undefined" && data.correct_points !== null ? data.correct_points :
+                typeof data.points_correct !== "undefined" && data.points_correct !== null ? data.points_correct :
+                typeof data.base_points !== "undefined" && data.base_points !== null ? data.base_points :
+                data.points_per_correct;
+            window.__appealCorrectPoints = Number(explicitAppealPoints);
             if(!Number.isFinite(window.__appealCorrectPoints) || window.__appealCorrectPoints <= 0){
                 window.__appealCorrectPoints = Number(window.__currentQuestionPoints);
             }
@@ -4339,9 +4350,10 @@ async function createRoom(){
                 mini.innerHTML = html;
                 revealContentHost.appendChild(mini);
                 applyTopPlaceStyles(mini);
-                const leaderChanged = showLeaderChangeFlash(data.leaderboard[0]?.[0], data.leaderboard);
+                const leaderName = (data.leaderboard && data.leaderboard[0] && data.leaderboard[0][0]) ? data.leaderboard[0][0] : null;
+                const leaderChanged = showLeaderChangeFlash(leaderName, data.leaderboard);
                 if(leaderChanged){
-                    triggerLeaderImpact(data.leaderboard[0]?.[0]);
+                    triggerLeaderImpact(leaderName);
                 }
 
                 // ===== SMOOTH RANK OVERTAKE (IDENTICAL TO PLAYER) =====
@@ -4884,7 +4896,7 @@ function startTimer(seconds){
 }
 
 document.addEventListener("keydown", (event)=>{
-    const tag = event.target?.tagName;
+    const tag = event && event.target ? event.target.tagName : undefined;
     if(tag === "INPUT" || tag === "TEXTAREA") return;
 
     if(event.code === "Space"){
