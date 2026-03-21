@@ -2117,6 +2117,14 @@ document.addEventListener("DOMContentLoaded", ()=>{
       hasConfirmedServerSession = true;
     }
   }catch(e){}
+  if(!wsJoin){
+    const nameInput = document.getElementById("name");
+    const pinInput = document.getElementById("pin");
+    const error = document.getElementById("error");
+    if(nameInput) nameInput.value = "";
+    if(pinInput) pinInput.value = "";
+    if(error) error.innerHTML = "";
+  }
   updateReturnButton();
   presenceTrackingActive = false;
   resetJoinUiState();
@@ -2155,6 +2163,12 @@ window.addEventListener("pagehide", ()=>{
   suspendPresence();
 });
 window.addEventListener("pageshow", ()=>{
+  if(!wsJoin){
+    const error = document.getElementById("error");
+    const pinInput = document.getElementById("pin");
+    if(error) error.innerHTML = "";
+    if(pinInput) pinInput.value = "";
+  }
   if(!document.hidden){
     resumePresence();
   }
