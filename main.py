@@ -192,6 +192,231 @@ def evaluate_wordle_guess(target: str, guess: str) -> list[str]:
     return statuses
 
 
+def get_crossword_levels(question: dict) -> list[dict]:
+    raw_levels = question.get("difficulty_levels") or []
+    levels: list[dict] = []
+    for index, item in enumerate(raw_levels, start=1):
+        if not isinstance(item, dict):
+            continue
+        level_id = str(item.get("id") or index).strip()
+        label = str(item.get("label") or item.get("title") or level_id).strip()
+        words = item.get("words") or item.get("crossword_words") or []
+        if not level_id or not label or not isinstance(words, list) or not words:
+            continue
+        levels.append({
+            "id": level_id,
+            "label": label,
+            "words": words,
+        })
+    return levels
+
+
+def get_crossword_words(question: dict, difficulty_id: str | None = None) -> list[dict]:
+    raw_words = None
+    levels = get_crossword_levels(question)
+    if levels:
+        selected = None
+        if difficulty_id:
+            selected = next((level for level in levels if level["id"] == str(difficulty_id)), None)
+        if selected is None:
+            selected = levels[0]
+        raw_words = selected["words"]
+    if raw_words is None:
+        raw_words = question.get("words") or question.get("crossword_words") or []
+    words: list[dict] = []
+    for index, item in enumerate(raw_words, start=1):
+        if not isinstance(item, dict):
+            continue
+        answer = str(item.get("answer") or "").strip()
+        clue = str(item.get("clue") or "").strip()
+        if not answer or not clue:
+            continue
+        row_raw = item.get("row")
+        col_raw = item.get("col")
+        direction_raw = item.get("direction")
+        row = int(row_raw) if row_raw is not None and row_raw != "" else None
+        col = int(col_raw) if col_raw is not None and col_raw != "" else None
+        direction = str(direction_raw or "").strip().lower()
+        if direction not in {"across", "down"}:
+            direction = None
+        words.append({
+            "id": str(item.get("id") or index),
+            "number": int(item.get("number", index) or index),
+            "clue": clue,
+            "answer": answer,
+            "row": row,
+            "col": col,
+            "direction": direction,
+            "length": len(answer),
+        })
+    return words
+
+
+def auto_layout_crossword_words(words: list[dict]) -> list[dict]:
+    if not words:
+        return []
+
+    placed: list[dict] = []
+    occupied: dict[tuple[int, int], str] = {}
+
+    def can_place(word: str, row: int, col: int, direction: str) -> bool:
+        for offset, letter in enumerate(word):
+            cell_row = row + (offset if direction == "down" else 0)
+            cell_col = col + (offset if direction == "across" else 0)
+            existing = occupied.get((cell_row, cell_col))
+            if existing and existing.lower() != letter.lower():
+                return False
+        return True
+
+    def count_intersections(word: str, row: int, col: int, direction: str) -> int:
+        score = 0
+        for offset, letter in enumerate(word):
+            cell_row = row + (offset if direction == "down" else 0)
+            cell_col = col + (offset if direction == "across" else 0)
+            existing = occupied.get((cell_row, cell_col))
+            if existing and existing.lower() == letter.lower():
+                score += 1
+        return score
+
+    def place(entry: dict, row: int, col: int, direction: str) -> None:
+        placed_item = dict(entry)
+        placed_item["row"] = row
+        placed_item["col"] = col
+        placed_item["direction"] = direction
+        placed.append(placed_item)
+        for offset, letter in enumerate(entry["answer"]):
+            cell_row = row + (offset if direction == "down" else 0)
+            cell_col = col + (offset if direction == "across" else 0)
+            occupied[(cell_row, cell_col)] = letter
+
+    sorted_words = sorted(words, key=lambda item: (-item["length"], item["number"]))
+    first = sorted_words[0]
+    place(first, 0, 0, "across")
+
+    for entry in sorted_words[1:]:
+        best_candidate: tuple[int, int, str, int] | None = None
+        answer = entry["answer"]
+        for placed_word in placed:
+            placed_answer = placed_word["answer"]
+            for own_index, own_letter in enumerate(answer):
+                for placed_index, placed_letter in enumerate(placed_answer):
+                    if own_letter.lower() != placed_letter.lower():
+                        continue
+                    for direction in ("across", "down"):
+                        row = placed_word["row"]
+                        col = placed_word["col"]
+                        if placed_word["direction"] == "across":
+                            row = row - own_index
+                            col = col + placed_index
+                        else:
+                            row = row + placed_index
+                            col = col - own_index
+                        if direction == placed_word["direction"]:
+                            continue
+                        if not can_place(answer, row, col, direction):
+                            continue
+                        intersections = count_intersections(answer, row, col, direction)
+                        if intersections <= 0:
+                            continue
+                        candidate = (row, col, direction, intersections)
+                        if best_candidate is None or intersections > best_candidate[3]:
+                            best_candidate = candidate
+        if best_candidate is None:
+            max_row = max(
+                item["row"] + (item["length"] - 1 if item["direction"] == "down" else 0)
+                for item in placed
+            )
+            place(entry, max_row + 2, 0, "across")
+        else:
+            place(entry, best_candidate[0], best_candidate[1], best_candidate[2])
+
+    min_row = min(item["row"] for item in placed)
+    min_col = min(item["col"] for item in placed)
+    if min_row < 0 or min_col < 0:
+        for item in placed:
+            item["row"] -= min_row
+            item["col"] -= min_col
+    placed.sort(key=lambda item: item["number"])
+    return placed
+
+
+def build_crossword_payload(question: dict, include_answers: bool = False, difficulty_id: str | None = None) -> dict:
+    levels = get_crossword_levels(question)
+    selected_difficulty = None
+    if levels:
+        selected_level = None
+        if difficulty_id:
+            selected_level = next((level for level in levels if level["id"] == str(difficulty_id)), None)
+        if selected_level is None:
+            selected_level = levels[0]
+        selected_difficulty = selected_level["id"]
+    words = get_crossword_words(question, selected_difficulty)
+    if words and any(item["row"] is None or item["col"] is None or item["direction"] is None for item in words):
+        words = auto_layout_crossword_words(words)
+    else:
+        words = [
+            {
+                **item,
+                "row": int(item["row"] or 0),
+                "col": int(item["col"] or 0),
+                "direction": item["direction"] or "across",
+            }
+            for item in words
+        ]
+    rows = 0
+    cols = 0
+    starts: dict[tuple[int, int], int] = {}
+    for item in words:
+        rows = max(rows, item["row"] + (1 if item["direction"] == "across" else item["length"]))
+        cols = max(cols, item["col"] + (item["length"] if item["direction"] == "across" else 1))
+        starts[(item["row"], item["col"])] = item["number"]
+
+    cells: list[dict] = []
+    for item in words:
+        answer = item["answer"]
+        for offset in range(item["length"]):
+            row = item["row"] + (offset if item["direction"] == "down" else 0)
+            col = item["col"] + (offset if item["direction"] == "across" else 0)
+            key = f"{row}:{col}"
+            cell = next((c for c in cells if c["key"] == key), None)
+            if cell is None:
+                cell = {
+                    "key": key,
+                    "row": row,
+                    "col": col,
+                    "number": starts.get((row, col)),
+                }
+                if include_answers:
+                    cell["letter"] = answer[offset]
+                cells.append(cell)
+            elif include_answers and "letter" not in cell:
+                cell["letter"] = answer[offset]
+
+    words_payload = []
+    for item in words:
+        payload_item = {
+            "id": item["id"],
+            "number": item["number"],
+            "clue": item["clue"],
+            "row": item["row"],
+            "col": item["col"],
+            "direction": item["direction"],
+            "length": item["length"],
+        }
+        if include_answers:
+            payload_item["answer"] = item["answer"]
+        words_payload.append(payload_item)
+
+    return {
+        "rows": max(rows, int(question.get("grid_rows", rows or 1) or 1)),
+        "cols": max(cols, int(question.get("grid_cols", cols or 1) or 1)),
+        "cells": cells,
+        "words": words_payload,
+        "difficulties": [{"id": level["id"], "label": level["label"]} for level in levels],
+        "selected_difficulty": selected_difficulty,
+    }
+
+
 app = FastAPI()
 
 from fastapi import Request
@@ -812,6 +1037,48 @@ QUIZZES = {
             "time": 30,      
             "points": 1000
 
+        },
+        {
+            "type": "crossword",
+            "question": "Разгадай кроссворд по базовым игровым терминам",
+            "time": 180,
+            "points": 1500,
+            "difficulty_levels": [
+                {
+                    "id": "easy",
+                    "label": "Легко",
+                    "words": [
+                        {"number": 1, "clue": "Связка действий в бою", "answer": "КОМБО"},
+                        {"number": 2, "clue": "Базовая боевая защита", "answer": "БЛОК"},
+                        {"number": 3, "clue": "Игровой режим", "answer": "ГОРН"},
+                        {"number": 4, "clue": "Космический чемпион", "answer": "НОВА"}
+                    ]
+                },
+                {
+                    "id": "medium",
+                    "label": "Средне",
+                    "words": [
+                        {"number": 1, "clue": "Связка действий в бою", "answer": "КОМБО"},
+                        {"number": 2, "clue": "Базовая боевая защита", "answer": "БЛОК"},
+                        {"number": 3, "clue": "Игровой режим", "answer": "ГОРН"},
+                        {"number": 4, "clue": "Космический чемпион", "answer": "НОВА"},
+                        {"number": 5, "clue": "Космический чемпион с коротким именем", "answer": "ВОКС"}
+                    ]
+                },
+                {
+                    "id": "hard",
+                    "label": "Сложно",
+                    "words": [
+                        {"number": 1, "clue": "Связка действий в бою", "answer": "КОМБО"},
+                        {"number": 2, "clue": "Базовая боевая защита", "answer": "БЛОК"},
+                        {"number": 3, "clue": "Игровой режим", "answer": "ГОРН"},
+                        {"number": 4, "clue": "Космический чемпион", "answer": "НОВА"},
+                        {"number": 5, "clue": "Космический чемпион с коротким именем", "answer": "ВОКС"},
+                        {"number": 6, "clue": "Ресурс для улучшений", "answer": "СПЛАВ"},
+                        {"number": 7, "clue": "Усиление через агрессию", "answer": "ЯРОСТЬ"}
+                    ]
+                }
+            ]
         },
 
         {
@@ -2740,6 +3007,7 @@ QUIZZES = {
 # numeric    - numeric input
 # text       - short text answer
 # wordle     - word guessing with multiple attempts and colored letter feedback
+# crossword  - crossword grid with multiple clues/answers
 # poll       - no correct answer (voting)
 # fastest    - first correct wins bonus
 
@@ -3273,6 +3541,22 @@ async def _websocket_endpoint_impl(websocket: WebSocket, role: str, room: str, u
     if role == "host":
         room_data["host"] = websocket
         log_event("host_attached", room, username=username)
+        current_payload = room_data.get("current_payload")
+        if isinstance(current_payload, dict):
+            await websocket.send_json(dict(current_payload))
+            if room_data.get("paused") and room_data.get("current_view") == "question":
+                await websocket.send_json({
+                    "type": "paused",
+                    "time": room_data.get("remaining_time", 0)
+                })
+            if room_data.get("current_view") == "question":
+                await websocket.send_json({
+                    "type": "team_assignment",
+                    "enabled": bool(room_data.get("team_mode")),
+                    "team_size": int(room_data.get("team_size", 2)),
+                    "teams": room_data.get("teams", []),
+                    "team_leaderboard": compute_team_leaderboard(room_data),
+                })
         await update_players(room)
     else:
         # === Player connect / reconnect handling ===
@@ -3627,6 +3911,39 @@ async def _websocket_endpoint_impl(websocket: WebSocket, role: str, room: str, u
                 await broadcast_team_update(room)
                 continue
 
+            if role == "host" and data.get("type") == "set_crossword_difficulty":
+                if room_data.get("current_view") != "question":
+                    continue
+                quiz = room_data.get("quiz_questions") or QUIZZES.get(room_data.get("quiz"), [])
+                question_index = int(room_data.get("question_index", 0) or 0)
+                current_question = quiz[question_index] if 0 <= question_index < len(quiz) else {}
+                if current_question.get("type") != "crossword":
+                    continue
+                levels = get_crossword_levels(current_question)
+                if not levels:
+                    continue
+                difficulty_id = str(data.get("difficulty_id") or "").strip()
+                selected = next((level for level in levels if level["id"] == difficulty_id), None)
+                if selected is None:
+                    continue
+                room_data["crossword_difficulty_id"] = selected["id"]
+                room_data["answers"] = {}
+                crossword_payload = build_crossword_payload(current_question, include_answers=False, difficulty_id=selected["id"])
+                update_payload = {
+                    "type": "crossword_difficulty",
+                    "question_type": "crossword",
+                    "crossword": crossword_payload,
+                    "crossword_difficulties": crossword_payload.get("difficulties", []),
+                    "crossword_selected_difficulty": selected["id"],
+                }
+                if isinstance(room_data.get("current_payload"), dict):
+                    room_data["current_payload"]["crossword"] = crossword_payload
+                    room_data["current_payload"]["crossword_difficulties"] = crossword_payload.get("difficulties", [])
+                    room_data["current_payload"]["crossword_selected_difficulty"] = selected["id"]
+                await broadcast(room, update_payload)
+                log_event("crossword_difficulty_changed", room, difficulty_id=selected["id"], label=selected["label"])
+                continue
+
             if role == "host" and data.get("type") == "shuffle_teams":
                 if room_data.get("status") != "waiting":
                     continue
@@ -3678,6 +3995,63 @@ async def _websocket_endpoint_impl(websocket: WebSocket, role: str, room: str, u
                 current_time = time.time()
                 elapsed = current_time - room_data["question_start"]
                 remaining = max(0, room_data["question_duration"] - elapsed)
+
+                if q_type == "crossword":
+                    submitted_words = data.get("words")
+                    if not isinstance(submitted_words, dict):
+                        continue
+                    room_data["answers"][answer_user] = {
+                        "value": {str(k): str(v or "") for k, v in submitted_words.items()},
+                        "remaining": remaining,
+                    }
+                    metrics = room_data.setdefault("current_question_metrics", {}).setdefault(answer_user, {
+                        "tab_switches": 0,
+                        "response_time_ms": None,
+                        "answered_at": None,
+                        "offline_total_ms": 0,
+                        "offline_started_at": None,
+                        "offline_before_answer_ms": 0,
+                        "manual_suspicious": False,
+                        "manual_suspicious_note": "",
+                    })
+                    if metrics.get("offline_started_at"):
+                        metrics["offline_total_ms"] = float(metrics.get("offline_total_ms", 0) or 0) + max(0.0, current_time - float(metrics["offline_started_at"])) * 1000
+                        metrics["offline_started_at"] = None
+                    if metrics.get("offline_before_answer_ms") in {None, 0}:
+                        metrics["offline_before_answer_ms"] = float(metrics.get("offline_total_ms", 0) or 0)
+                    offline_before_answer_seconds = round(float(metrics.get("offline_before_answer_ms", 0) or 0) / 1000, 2)
+                    metrics["answered_at"] = current_time
+                    metrics["response_time_ms"] = int(max(0.0, elapsed) * 1000)
+                    room_data["answers"][answer_user]["offline_before_answer_seconds"] = offline_before_answer_seconds
+                    log_event("answer_received", room, username=answer_user, question_type=q_type)
+                    add_player_timeline_event(
+                        room_data,
+                        answer_user,
+                        "answered",
+                        answer=submitted_words,
+                        response_time_ms=metrics.get("response_time_ms"),
+                        offline_before_answer_seconds=offline_before_answer_seconds,
+                    )
+                    total_expected = len(room_data["players"])
+                    answered_count = sum(
+                        1 for player_name in room_data["players"].keys()
+                        if player_name in room_data["answers"]
+                    )
+                    answered_players = [
+                        player_name for player_name in room_data["players"].keys()
+                        if player_name in room_data["answers"]
+                    ]
+                    await broadcast(room, {
+                        "type": "progress",
+                        "answered": answered_count,
+                        "total": total_expected,
+                        "answered_players": answered_players
+                    })
+                    if len(room_data["answers"]) >= total_expected:
+                        await broadcast(room, {"type": "all_answered"})
+                        current_index = room_data["question_index"]
+                        asyncio.create_task(reveal_after_delay(room, 0, current_index))
+                    continue
 
                 if q_type == "wordle":
                     target_raw = current_question.get("correct")
@@ -4158,7 +4532,9 @@ async def send_question(room):
     room_data["paused"] = False
     room_data["remaining_time"] = None
 
-    question_time = question.get("time", 30)
+    base_question_time = int(question.get("time", 30) or 30)
+    question_intro_delay = 10
+    question_time = base_question_time + question_intro_delay
     room_data["question_start"] = time.time()
     room_data["question_duration"] = question_time
 
@@ -4166,6 +4542,18 @@ async def send_question(room):
     max_select = 1
     if question.get("type") == "mcq" and isinstance(question.get("correct"), list):
         max_select = len(question.get("correct"))
+    crossword_payload = None
+    crossword_difficulties = []
+    selected_crossword_difficulty = None
+    if question.get("type") == "crossword":
+        levels = get_crossword_levels(question)
+        if levels:
+            selected_crossword_difficulty = str(room_data.get("crossword_difficulty_id") or levels[0]["id"])
+            if not any(level["id"] == selected_crossword_difficulty for level in levels):
+                selected_crossword_difficulty = levels[0]["id"]
+        room_data["crossword_difficulty_id"] = selected_crossword_difficulty
+        crossword_payload = build_crossword_payload(question, include_answers=False, difficulty_id=selected_crossword_difficulty)
+        crossword_difficulties = crossword_payload.get("difficulties", [])
 
     await broadcast(room, {
         "type": "question",
@@ -4180,10 +4568,14 @@ async def send_question(room):
         "image_offset": question.get("image_offset"),
         "points": question.get("points", 1000),
         "time": question_time,
+        "question_intro_delay": question_intro_delay,
         "max_select": max_select,
         "word_length": len(apply_alias(normalize_answer(question.get("correct")))) if question.get("type") == "wordle" else None,
         "max_attempts": max(1, int(question.get("max_attempts", 6))) if question.get("type") == "wordle" else None,
         "wordle_hint_cost": WORDLE_HINT_COST if question.get("type") == "wordle" else None,
+        "crossword": crossword_payload,
+        "crossword_difficulties": crossword_difficulties if question.get("type") == "crossword" else None,
+        "crossword_selected_difficulty": selected_crossword_difficulty if question.get("type") == "crossword" else None,
     })
     room_data["current_payload"] = {
         "type": "question",
@@ -4198,10 +4590,14 @@ async def send_question(room):
         "image_offset": question.get("image_offset"),
         "points": question.get("points", 1000),
         "time": question_time,
+        "question_intro_delay": question_intro_delay,
         "max_select": max_select,
         "word_length": len(apply_alias(normalize_answer(question.get("correct")))) if question.get("type") == "wordle" else None,
         "max_attempts": max(1, int(question.get("max_attempts", 6))) if question.get("type") == "wordle" else None,
         "wordle_hint_cost": WORDLE_HINT_COST if question.get("type") == "wordle" else None,
+        "crossword": crossword_payload,
+        "crossword_difficulties": crossword_difficulties if question.get("type") == "crossword" else None,
+        "crossword_selected_difficulty": selected_crossword_difficulty if question.get("type") == "crossword" else None,
     }
     room_data["current_view"] = "question"
     for username in room_data.get("players", {}).keys():
@@ -4230,6 +4626,7 @@ async def send_reveal(room, question_index):
     display_question_text = f"{question_index + 1}. {cleaned_question_text}"
     q_type = question.get("type", "mcq")
     correct_value = question.get("correct")
+    selected_crossword_difficulty = str(room_data.get("crossword_difficulty_id") or "") if q_type == "crossword" else None
 
     if q_type in ["mcq", "fastest"]:
         if not isinstance(correct_value, list):
@@ -4262,6 +4659,8 @@ async def send_reveal(room, question_index):
     for user, data_answer in room_data["answers"].items():
         if q_type in {"numeric", "text"}:
             users_answers[user] = data_answer.get("value")
+        elif q_type == "crossword":
+            users_answers[user] = data_answer.get("value", {})
         elif q_type == "wordle":
             users_answers[user] = data_answer.get("attempts", [])
         elif data_answer.get("selected_list") is not None:
@@ -4332,6 +4731,22 @@ async def send_reveal(room, question_index):
                 points_awarded[user] = 0
             continue
 
+        if q_type == "crossword":
+            submitted = value if isinstance(value, dict) else {}
+            words = get_crossword_words(question, selected_crossword_difficulty)
+            total_words = len(words)
+            correct_count = 0
+            for item in words:
+                user_word = apply_alias(normalize_answer(submitted.get(item["id"])))
+                correct_word = apply_alias(normalize_answer(item["answer"]))
+                if user_word and user_word == correct_word:
+                    correct_count += 1
+            crossword_points = int(round((fixed_points * correct_count / total_words), 0)) if total_words else 0
+            if crossword_points > 0:
+                room_data["scores"][user] += crossword_points
+            points_awarded[user] = crossword_points
+            continue
+
         if q_type == "wordle":
             attempts = data_answer.get("attempts", []) if isinstance(data_answer, dict) else []
             solved = bool(data_answer.get("solved")) if isinstance(data_answer, dict) else False
@@ -4374,6 +4789,7 @@ async def send_reveal(room, question_index):
         "correct": question.get("correct"),
         "users_answers": users_answers,
         "points_awarded": points_awarded.copy(),
+        "crossword_solution": build_crossword_payload(question, include_answers=True, difficulty_id=selected_crossword_difficulty) if q_type == "crossword" else None,
         "response_times_ms": {
             user: metrics.get("response_time_ms")
             for user, metrics in (room_data.get("current_question_metrics") or {}).items()
@@ -4411,6 +4827,8 @@ async def send_reveal(room, question_index):
         "team_leaderboard": compute_team_leaderboard(room_data),
         "answered_count": len(users_answers),
         "max_attempts": max(1, int(question.get("max_attempts", 6))) if q_type == "wordle" else None,
+        "crossword": build_crossword_payload(question, include_answers=False, difficulty_id=selected_crossword_difficulty) if q_type == "crossword" else None,
+        "crossword_selected_difficulty": selected_crossword_difficulty if q_type == "crossword" else None,
     })
 
     reveal_payload = {
@@ -4434,6 +4852,9 @@ async def send_reveal(room, question_index):
         "team_leaderboard": compute_team_leaderboard(room_data),
         "max_attempts": max(1, int(question.get("max_attempts", 6))) if q_type == "wordle" else None,
         "word_length": len(apply_alias(normalize_answer(question.get("correct")))) if q_type == "wordle" else None,
+        "crossword": build_crossword_payload(question, include_answers=False, difficulty_id=selected_crossword_difficulty) if q_type == "crossword" else None,
+        "crossword_solution": build_crossword_payload(question, include_answers=True, difficulty_id=selected_crossword_difficulty) if q_type == "crossword" else None,
+        "crossword_selected_difficulty": selected_crossword_difficulty if q_type == "crossword" else None,
     }
     await broadcast(room, reveal_payload)
     room_data["current_payload"] = reveal_payload
