@@ -1129,7 +1129,7 @@ QUIZZES = {
         {
             "type": "crossword",
             "question": "Разгадай кроссворд по базовым игровым терминам",
-            "time": 180,
+            "time": 360,
             "points": 1500,
             "difficulty_levels": [
                 {
