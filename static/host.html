@@ -3632,6 +3632,7 @@ async function createRoom(){
 
         // 🔹 Новый вопрос
         if(data.type==="question"){
+            try{
             if(hostDraftHideTimer){
                 clearTimeout(hostDraftHideTimer);
                 hostDraftHideTimer = null;
@@ -3839,6 +3840,22 @@ async function createRoom(){
 
 
             startTimer(data.time);
+            }catch(error){
+                console.error("Host question render failed:", error, data);
+                const questionEl = document.getElementById("question");
+                document.getElementById("gameSection").style.display = "block";
+                document.body.classList.add("game-mode");
+                if(questionEl){
+                    questionEl.innerHTML = `
+                        <div id="revealScreen">
+                            <div class="question-card fade-in">${String(data.question || "Вопрос загружен")}</div>
+                            <div class="audio-note" style="margin-top:14px;font-size:18px;line-height:1.6;">Полный рендер вопроса не удался на этом устройстве, но игра продолжается.</div>
+                        </div>
+                        <div id="scoreScreen" class="screen-hidden"></div>
+                    `;
+                }
+                try{ startTimer(data.time || 15); }catch(e){}
+            }
         }
 
         // 🔹 Прогресс ответивших

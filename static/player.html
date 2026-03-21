@@ -1403,6 +1403,7 @@ let presenceTrackingActive = false;
 let leaderboardSyncTimer = null;
 let currentPlayerScore = 0;
 let hasSeenInitialTeamAssignment = false;
+let hasConfirmedServerSession = false;
 
 let heartbeatTimer = null;
 let lastPongAt = Date.now();
@@ -1538,7 +1539,7 @@ function updateReturnButton(){
 }
 
 function returnToSavedGame(){
-  if(!wsJoin || !wsJoin.pin || !wsJoin.name) return;
+  if(!wsJoin || !wsJoin.pin || !wsJoin.name || !hasConfirmedServerSession) return;
   document.getElementById("error").innerHTML = "";
   document.getElementById("joinSection").style.display = "none";
   document.getElementById("gameSection").style.display = "block";
@@ -1718,6 +1719,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
     const saved = JSON.parse(sessionStorage.getItem("kahoot_last_join_session") || "null");
     if(saved && saved.pin && saved.name){
       wsJoin = saved;
+      hasConfirmedServerSession = true;
     }
   }catch(e){}
   updateReturnButton();
@@ -2717,6 +2719,12 @@ function handlePlayerMessage(raw){
         return;
     }
 
+    if(!hasConfirmedServerSession && data.type !== "error"){
+        hasConfirmedServerSession = true;
+        saveJoinSession();
+        updateReturnButton();
+    }
+
     // 🔹 Appeal applied by host — update leaderboard live
     if(data && data.type === "appeal_awarded"){
         if(data.username && typeof data.delta === "number"){
@@ -2960,6 +2968,7 @@ function handlePlayerMessage(raw){
         return;
     }
     if(data.type==="question"){
+        try{
         clearLeaderboardSyncTimer();
         presenceTrackingActive = true;
         if(playerDraftHideTimer){
@@ -3161,6 +3170,26 @@ function handlePlayerMessage(raw){
 
         restoreAnswerStateForCurrentQuestion();
         startTimer(data.time);
+        }catch(error){
+            console.error("Player question render failed:", error, data);
+            const fallbackHtml = `
+<div class="timer-wrapper">
+    <div style="position:relative;">
+        <svg class="timer-svg" width="140" height="140">
+            <circle class="timer-circle-bg" cx="70" cy="70" r="60"></circle>
+            <circle class="timer-circle" id="timerCircle" cx="70" cy="70" r="60"></circle>
+        </svg>
+        <div class="timer-text" id="timerText"></div>
+    </div>
+</div>
+<div class="question-title">${String(data.question || "Вопрос загружен")}</div>
+<div class="audio-note" style="margin-top:14px;font-size:18px;line-height:1.6;">Не удалось полностью отрисовать этот вопрос на устройстве. Попробуйте обновить страницу после раунда.</div>
+            `;
+            document.getElementById("joinSection").style.display="none";
+            document.getElementById("gameSection").style.display="block";
+            document.getElementById("content").innerHTML = fallbackHtml;
+            try{ startTimer(data.time || 15); }catch(e){}
+        }
     }
 
     if(data.type==="wordle_feedback"){
@@ -3735,7 +3764,7 @@ function join(){
     currentPlayerTeamLeaderboard = [];
 
     wsJoin = { pin, name };
-    saveJoinSession();
+    hasConfirmedServerSession = false;
     updateReturnButton();
     connectPlayerWS(false);
 }
@@ -3951,6 +3980,7 @@ function showError(msg){
 function goBack(){
     presenceTrackingActive = false;
     closedByRoom = true;
+    hasConfirmedServerSession = false;
     try{ stopHeartbeat(); }catch(e){}
     clearJoinSession();
     updateReturnButton();
