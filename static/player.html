@@ -1487,6 +1487,15 @@ function renderFatalPlayerError(message){
   const gameSection = document.getElementById("gameSection");
   const joinSection = document.getElementById("joinSection");
   const error = document.getElementById("error");
+  const joinVisible = joinSection && joinSection.style.display !== "none";
+  const hasActiveSession = !!(wsJoin && wsJoin.pin && wsJoin.name);
+  if(joinVisible && !hasActiveSession){
+    if(error){
+      error.innerHTML = `<div class='error'>${String(message || "Ошибка загрузки страницы")}</div>`;
+    }
+    resetJoinUiState();
+    return;
+  }
   if(joinSection) joinSection.style.display = "none";
   if(gameSection) gameSection.style.display = "block";
   const content = document.getElementById("content");
@@ -1719,6 +1728,14 @@ document.addEventListener("DOMContentLoaded", ()=>{
 window.addEventListener("error", (event)=>{
   const message = event?.message || "Ошибка в player UI";
   console.error("Global player error:", event?.error || event);
+  if(message === "Script error." || message === "Script error"){
+    const error = document.getElementById("error");
+    if(error){
+      error.innerHTML = "<div class='error'>Ошибка загрузки на этом устройстве. Обновите страницу или откройте ссылку заново.</div>";
+    }
+    resetJoinUiState();
+    return;
+  }
   renderFatalPlayerError(message);
 });
 
