@@ -2723,7 +2723,13 @@ function buildHostCrosswordCellValues(crossword, wordsMap){
         for(let i = 0; i < Number(word.length || 0); i++){
             const row = Number(word.row || 0) + (word.direction === "down" ? i : 0);
             const col = Number(word.col || 0) + (word.direction === "across" ? i : 0);
-            values[`${row}:${col}`] = answer[i] || "";
+            const key = `${row}:${col}`;
+            const nextChar = answer[i] || "";
+            if(nextChar){
+                values[key] = nextChar;
+            } else if(typeof values[key] === "undefined"){
+                values[key] = "";
+            }
         }
     });
     return values;
@@ -2731,10 +2737,10 @@ function buildHostCrosswordCellValues(crossword, wordsMap){
 
 function setHostCrosswordDifficulty(difficultyId){
     const difficulty = String(difficultyId || "").trim();
-    if(!difficulty || !playerSocket || playerSocket.readyState !== WebSocket.OPEN){
+    if(!difficulty || !socket || socket.readyState !== WebSocket.OPEN){
         return;
     }
-    playerSocket.send(JSON.stringify({
+    socket.send(JSON.stringify({
         type: "set_crossword_difficulty",
         difficulty_id: difficulty
     }));
