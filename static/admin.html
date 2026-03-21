@@ -891,10 +891,12 @@ function connectAdmin(){
             send({type:"admin_refresh"});
         }
     };
-    adminSocket.onclose = ()=>{
+    adminSocket.onclose = (event)=>{
         stopAdminHeartbeat();
         adminSocket = null;
-        setStatus("disconnected", false);
+        const closeCode = event && typeof event.code !== "undefined" ? event.code : "unknown";
+        const closeReason = event && event.reason ? ` ${event.reason}` : "";
+        setStatus(`disconnected (${closeCode}${closeReason})`, false);
         if(adminRefreshTimer){
             clearInterval(adminRefreshTimer);
             adminRefreshTimer = null;
@@ -903,7 +905,10 @@ function connectAdmin(){
             adminReconnectTimer = setTimeout(connectAdmin, 1500);
         }
     };
-    adminSocket.onerror = ()=> setStatus("error", false);
+    adminSocket.onerror = (event)=>{
+        console.error("Admin websocket error", event);
+        setStatus("error", false);
+    };
     adminSocket.onmessage = (event)=>{
         const data = JSON.parse(event.data);
         if(data.type === "admin_pong"){

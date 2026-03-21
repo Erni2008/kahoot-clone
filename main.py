@@ -203,6 +203,14 @@ async def add_ngrok_header(request: Request, call_next):
     response.headers["ngrok-skip-browser-warning"] = "true"
     return response
 
+
+def html_no_cache_response(path: str) -> FileResponse:
+    response = FileResponse(path)
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
 rooms: Dict[str, dict] = {}
 admin_logs = deque(maxlen=ADMIN_LOG_LIMIT)
 admin_clients: Dict[str, dict] = {}
@@ -2817,23 +2825,23 @@ async def close_room_and_notify(room: str, message: str = "Тест заверш
 
 @app.get("/")
 async def root():
-    return FileResponse("static/host.html")
+    return html_no_cache_response("static/host.html")
 
 @app.get("/host.html")
 async def host_page():
-    return FileResponse("static/host.html")
+    return html_no_cache_response("static/host.html")
 
 @app.get("/player.html")
 async def player_page():
-    return FileResponse("static/player.html")
+    return html_no_cache_response("static/player.html")
 
 @app.get("/image_editor.html")
 async def image_editor_page():
-    return FileResponse("static/image_editor.html")
+    return html_no_cache_response("static/image_editor.html")
 
 @app.get("/admin.html")
 async def admin_page():
-    return FileResponse("static/admin.html")
+    return html_no_cache_response("static/admin.html")
 
 
 async def execute_admin_action(room: str, action: str, payload: dict | None = None) -> dict:
@@ -4061,8 +4069,10 @@ async def admin_websocket(websocket: WebSocket):
                     "result": result,
                 })
                 continue
-    except WebSocketDisconnect:
-        pass
+    except WebSocketDisconnect as exc:
+        log_event("admin_websocket_disconnect", client_id=client_id, code=getattr(exc, "code", None))
+    except Exception as exc:
+        log_event("admin_websocket_error", client_id=client_id, error=repr(exc))
     finally:
         admin_clients.pop(client_id, None)
         log_event("admin_disconnected", client_id=client_id)
