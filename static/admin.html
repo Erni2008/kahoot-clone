@@ -242,6 +242,7 @@ let adminReconnectTimer = null;
 let riskFilterMode = "all";
 let adminHeartbeatTimer = null;
 let adminLastPongAt = Date.now();
+let adminManualReconnect = false;
 const ADMIN_HEARTBEAT_MS = 15000;
 const ADMIN_PONG_TIMEOUT_MS = 45000;
 
@@ -869,6 +870,10 @@ function startAdminAutoRefresh(){
 }
 
 function connectAdmin(){
+    if(adminSocket && (adminSocket.readyState === WebSocket.OPEN || adminSocket.readyState === WebSocket.CONNECTING)){
+        return;
+    }
+    adminManualReconnect = false;
     adminSocket = new WebSocket(`${wsBase()}/ws/admin`);
     setStatus("connecting", true);
     adminSocket.onopen = ()=>{
@@ -888,12 +893,15 @@ function connectAdmin(){
     };
     adminSocket.onclose = ()=>{
         stopAdminHeartbeat();
+        adminSocket = null;
         setStatus("disconnected", false);
         if(adminRefreshTimer){
             clearInterval(adminRefreshTimer);
             adminRefreshTimer = null;
         }
-        adminReconnectTimer = setTimeout(connectAdmin, 1500);
+        if(!adminManualReconnect){
+            adminReconnectTimer = setTimeout(connectAdmin, 1500);
+        }
     };
     adminSocket.onerror = ()=> setStatus("error", false);
     adminSocket.onmessage = (event)=>{

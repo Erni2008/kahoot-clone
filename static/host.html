@@ -2148,6 +2148,8 @@ let lastQuestionText = "";
 let lastQuestionType = "";
 let hostHeartbeatTimer = null;
 let hostLastPongAt = Date.now();
+let hostReconnectTimer = null;
+let hostSocketsManualClose = false;
 const HOST_HEARTBEAT_MS = 15000;
 const HOST_PONG_TIMEOUT_MS = 45000;
 
@@ -2167,6 +2169,68 @@ function startHostHeartbeat(){
             try{ socket.close(); }catch(e){}
         }
     }, HOST_HEARTBEAT_MS);
+}
+
+function connectHostSockets(){
+    if(!currentPin) return;
+    const protocol = location.protocol === "https:" ? "wss" : "ws";
+
+    socket = new WebSocket(`${protocol}://${location.host}/ws/host?room=${encodeURIComponent(currentPin)}&username=host`);
+    socket.onopen = ()=>{
+        hostLastPongAt = Date.now();
+        startHostHeartbeat();
+        if(hostReconnectTimer){
+            clearTimeout(hostReconnectTimer);
+            hostReconnectTimer = null;
+        }
+    };
+    socket.onerror = ()=>{
+        try{ socket.close(); }catch(e){}
+    };
+    socket.onclose = ()=>{
+        stopHostHeartbeat();
+        socket = null;
+        if(hostSocketsManualClose) return;
+        if(hostReconnectTimer || !currentPin) return;
+        hostReconnectTimer = setTimeout(()=>{
+            hostReconnectTimer = null;
+            connectHostSockets();
+        }, 1500);
+    };
+
+    const hostName = "Ведущий";
+    playerSocket = new WebSocket(`${protocol}://${location.host}/ws/player?room=${encodeURIComponent(currentPin)}&username=${encodeURIComponent(hostName)}`);
+    playerSocket.onmessage = handleHostPlayerSocketMessage;
+}
+
+function handleHostPlayerSocketMessage(event){
+    const data = JSON.parse(event.data);
+
+    if(data.type === "error"){
+        alert(data.message);
+    }
+    if(data.type === "wordle_feedback"){
+        hostWordleAttempts = Array.isArray(data.attempts) ? data.attempts : [];
+        if(data.invalid){
+            shakeHostWordleRow();
+            refreshHostWordleBoard(false);
+            alert(data.message || "Нужно существующее слово");
+            return;
+        }
+        hostWordleDraft = "";
+        hostWordlePopIndex = -1;
+        hostWordleAnimatedRow = hostWordleAttempts.length - 1;
+        refreshHostWordleBoard(!!data.finalized);
+        setTimeout(()=>{
+            hostWordleAnimatedRow = -1;
+            refreshHostWordleBoard(!!data.finalized);
+        }, 900);
+        const btn = document.getElementById("hostWordleSubmitBtn");
+        if(btn && data.finalized){
+            btn.classList.add("disabled");
+            btn.style.opacity = "0.6";
+        }
+    }
 }
 
 function updatePinBadge(){
@@ -3453,11 +3517,16 @@ async function createRoom(){
 
     // Сервер уже расформировал предыдущие комнаты
     // Чистим интерфейс перед созданием новой
+    hostSocketsManualClose = true;
     if(socket){
         try{ socket.close(); }catch(e){}
     }
     if(playerSocket){
         try{ playerSocket.close(); }catch(e){}
+    }
+    if(hostReconnectTimer){
+        clearTimeout(hostReconnectTimer);
+        hostReconnectTimer = null;
     }
 
     document.getElementById("players").innerHTML = "";
@@ -3482,53 +3551,8 @@ async function createRoom(){
 
     currentPin = data.pin;
     updatePinBadge();
-
-    const protocol = location.protocol === "https:" ? "wss" : "ws";
-    socket = new WebSocket(`${protocol}://${location.host}/ws/host?room=${encodeURIComponent(currentPin)}&username=host`);
-    socket.onopen = ()=>{
-        hostLastPongAt = Date.now();
-        startHostHeartbeat();
-    };
-    socket.onerror = ()=>{
-        try{ socket.close(); }catch(e){}
-    };
-    socket.onclose = ()=>{
-        stopHostHeartbeat();
-    };
-
-    // подключаем ведущего как игрока
-    const hostName = "Ведущий";
-    playerSocket = new WebSocket(`${protocol}://${location.host}/ws/player?room=${encodeURIComponent(currentPin)}&username=${encodeURIComponent(hostName)}`);
-
-    playerSocket.onmessage = (event)=>{
-        const data = JSON.parse(event.data);
-
-        if(data.type === "error"){
-            alert(data.message);
-        }
-        if(data.type === "wordle_feedback"){
-            hostWordleAttempts = Array.isArray(data.attempts) ? data.attempts : [];
-            if(data.invalid){
-                shakeHostWordleRow();
-                refreshHostWordleBoard(false);
-                alert(data.message || "Нужно существующее слово");
-                return;
-            }
-            hostWordleDraft = "";
-            hostWordlePopIndex = -1;
-            hostWordleAnimatedRow = hostWordleAttempts.length - 1;
-            refreshHostWordleBoard(!!data.finalized);
-            setTimeout(()=>{
-                hostWordleAnimatedRow = -1;
-                refreshHostWordleBoard(!!data.finalized);
-            }, 900);
-            const btn = document.getElementById("hostWordleSubmitBtn");
-            if(btn && data.finalized){
-                btn.classList.add("disabled");
-                btn.style.opacity = "0.6";
-            }
-        }
-    };
+    hostSocketsManualClose = false;
+    connectHostSockets();
 
     socket.onmessage = (event)=>{
         const data = JSON.parse(event.data);
