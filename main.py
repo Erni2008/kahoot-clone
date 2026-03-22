@@ -3731,10 +3731,13 @@ async def _websocket_endpoint_impl(websocket: WebSocket, role: str, room: str, u
                     else:
                         question_start = room_data.get("question_start")
                         question_duration = float(room_data.get("question_duration") or 0)
+                        question_intro_delay = float(room_data.get("question_intro_delay") or payload_to_send.get("question_intro_delay") or 0)
                         if question_start:
                             elapsed = time.time() - float(question_start)
-                            remaining = max(0.0, question_duration - elapsed)
-                            payload_to_send["time"] = max(0, int(remaining + 0.999))
+                            remaining_total = max(0.0, question_duration - elapsed)
+                            intro_remaining = max(0.0, question_intro_delay - elapsed)
+                            payload_to_send["time"] = max(0, int((remaining_total - intro_remaining) + 0.999))
+                            payload_to_send["question_intro_delay"] = max(0, int(intro_remaining + 0.999))
                 await websocket.send_json(payload_to_send)
                 if room_data.get("paused") and room_data.get("current_view") == "question":
                     await websocket.send_json({
@@ -4659,6 +4662,8 @@ async def send_question(room):
     question_time = base_question_time + question_intro_delay
     room_data["question_start"] = time.time()
     room_data["question_duration"] = question_time
+    room_data["question_intro_delay"] = question_intro_delay
+    room_data["question_base_time"] = base_question_time
 
     # Determine max_select (allow selecting only number of correct answers if multi-correct)
     max_select = 1
@@ -4689,7 +4694,7 @@ async def send_question(room):
         "image_position": question.get("image_position"),
         "image_offset": question.get("image_offset"),
         "points": question.get("points", 1000),
-        "time": question_time,
+        "time": base_question_time,
         "question_intro_delay": question_intro_delay,
         "max_select": max_select,
         "word_length": len(apply_alias(normalize_answer(question.get("correct")))) if question.get("type") == "wordle" else None,
@@ -4711,7 +4716,7 @@ async def send_question(room):
         "image_position": question.get("image_position"),
         "image_offset": question.get("image_offset"),
         "points": question.get("points", 1000),
-        "time": question_time,
+        "time": base_question_time,
         "question_intro_delay": question_intro_delay,
         "max_select": max_select,
         "word_length": len(apply_alias(normalize_answer(question.get("correct")))) if question.get("type") == "wordle" else None,

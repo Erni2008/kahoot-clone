@@ -400,6 +400,7 @@ button:hover::after{
 }
 
 .crossword-grid{
+    --crossword-cell-size:44px;
     display:grid;
     gap:6px;
     justify-content:center;
@@ -407,17 +408,22 @@ button:hover::after{
 }
 
 .crossword-empty{
-    width:44px;
-    height:44px;
+    width:var(--crossword-cell-size);
+    height:var(--crossword-cell-size);
     border-radius:12px;
     background:rgba(255,255,255,.04);
     opacity:.18;
+    box-sizing:border-box;
 }
 
 .crossword-cell{
     position:relative;
-    width:44px;
-    height:44px;
+    width:var(--crossword-cell-size);
+    height:var(--crossword-cell-size);
+    min-width:var(--crossword-cell-size);
+    min-height:var(--crossword-cell-size);
+    margin:0;
+    padding:0;
     border-radius:12px;
     border:1px solid rgba(255,255,255,.12);
     background:linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.06));
@@ -430,6 +436,8 @@ button:hover::after{
     text-transform:uppercase;
     cursor:pointer;
     transition:transform .18s ease, border-color .18s ease, background .18s ease, box-shadow .18s ease;
+    box-sizing:border-box;
+    overflow:hidden;
 }
 
 .crossword-cell:hover{
@@ -681,12 +689,11 @@ button:hover::after{
         grid-template-columns:1fr;
     }
     .crossword-grid{
+        --crossword-cell-size:38px;
         gap:4px;
     }
     .crossword-empty,
     .crossword-cell{
-        width:38px;
-        height:38px;
         border-radius:10px;
         font-size:18px;
     }
@@ -2525,6 +2532,7 @@ button{
 let socket;
 let currentPin="";
 let timerInterval;
+let timerStartTimeout = null;
 let timerEndTime = null;
 let timerRemainingSeconds = 0;
 let timerPaused = false;
@@ -2693,6 +2701,7 @@ let hostCrosswordActiveId = "";
 let hostCrosswordDifficulties = [];
 let hostCrosswordSelectedDifficulty = "";
 let hostCrosswordIntroTimer = null;
+let hostCrosswordIntroCountdownInterval = null;
 let hostHasShownQuestionIntro = false;
 const WORDLE_KEYBOARD_ROWS = [
     ["й","ц","у","к","е","н","г","ш","щ","з","х"],
@@ -2712,7 +2721,7 @@ function buildHostCrosswordGridHtml(crossword, values, revealAnswers){
     crossword.cells.forEach((cell)=>{
         cellMap[`${cell.row}:${cell.col}`] = cell;
     });
-    let html = `<div class="crossword-grid" style="grid-template-columns:repeat(${cols}, minmax(0, 44px));">`;
+    let html = `<div class="crossword-grid" style="grid-template-columns:repeat(${cols}, minmax(0, var(--crossword-cell-size)));">`;
     for(let row = 0; row < rows; row++){
         for(let col = 0; col < cols; col++){
             const cell = cellMap[`${row}:${col}`];
@@ -2787,6 +2796,17 @@ function clearHostCrosswordIntroTimer(){
     if(hostCrosswordIntroTimer){
         clearTimeout(hostCrosswordIntroTimer);
         hostCrosswordIntroTimer = null;
+    }
+    if(hostCrosswordIntroCountdownInterval){
+        clearInterval(hostCrosswordIntroCountdownInterval);
+        hostCrosswordIntroCountdownInterval = null;
+    }
+}
+
+function clearPendingHostTimerStart(){
+    if(timerStartTimeout){
+        clearTimeout(timerStartTimeout);
+        timerStartTimeout = null;
     }
 }
 
@@ -4449,6 +4469,7 @@ async function createRoom(){
                 clearInterval(timerInterval);
                 timerInterval = null;
             }
+            clearPendingHostTimerStart();
             lastRevealProcessed = false;
             document.getElementById("gameSection").scrollIntoView({
                 block:"start"
@@ -4653,18 +4674,22 @@ async function createRoom(){
                 container.innerHTML = renderHostQuestionIntro(introDelay, type);
                 let countdownLeft = introDelay;
                 const countdownEl = document.getElementById("hostCrosswordIntroCountdown");
-                const countdownInterval = setInterval(()=>{
+                hostCrosswordIntroCountdownInterval = setInterval(()=>{
                     countdownLeft -= 1;
                     if(countdownEl && countdownLeft >= 0){
                         countdownEl.innerText = String(countdownLeft);
                     }
                     if(countdownLeft <= 0){
-                        clearInterval(countdownInterval);
+                        clearInterval(hostCrosswordIntroCountdownInterval);
+                        hostCrosswordIntroCountdownInterval = null;
                     }
                 }, 1000);
                 hostCrosswordIntroTimer = setTimeout(()=>{
                     hostCrosswordIntroTimer = null;
-                    clearInterval(countdownInterval);
+                    if(hostCrosswordIntroCountdownInterval){
+                        clearInterval(hostCrosswordIntroCountdownInterval);
+                        hostCrosswordIntroCountdownInterval = null;
+                    }
                     if(container){
                         container.innerHTML = hostQuestionBody;
                     }
@@ -4677,7 +4702,22 @@ async function createRoom(){
                 hostHasShownQuestionIntro = true;
             }
 
-            startTimer(data.time);
+            const timerWrapper = document.querySelector(".timer-wrapper");
+            if(timerWrapper){
+                timerWrapper.style.display = introDelay > 0 ? "none" : "flex";
+            }
+            if(introDelay > 0){
+                timerStartTimeout = setTimeout(()=>{
+                    timerStartTimeout = null;
+                    const delayedTimerWrapper = document.querySelector(".timer-wrapper");
+                    if(delayedTimerWrapper){
+                        delayedTimerWrapper.style.display = "flex";
+                    }
+                    startTimer(data.time);
+                }, introDelay * 1000);
+            } else {
+                startTimer(data.time);
+            }
             }catch(error){
                 console.error("Host question render failed:", error, data);
                 const questionEl = document.getElementById("question");
