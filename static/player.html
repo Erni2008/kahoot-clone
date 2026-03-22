@@ -13,6 +13,9 @@ body {
     color:white;
     text-align:center;
 }
+body.intro-active .image-mask{
+    display:none !important;
+}
 .container {
     max-width:700px;
     margin:auto;
@@ -2481,8 +2484,16 @@ function buildImageQuestionIntroVisual(){
 }
 
 function renderQuestionIntro(delaySeconds, type){
-    const copy = getQuestionIntroCopy(type);
     const hasImageQuestion = !!(lastQuestionPayload && lastQuestionPayload.image);
+    const copy = hasImageQuestion && type !== "crossword"
+        ? {
+            title: "Раунд с картинкой скоро начнётся",
+            meta: "На экране будет показан элемент персонажа или предмета.",
+            left: "У вас на экране появится элемент персонажа или часть изображения. Ваша задача — понять, кто изображён, и написать точный ответ.",
+            rightTitle: "Что делать",
+            right: "Старайтесь писать полное и точное имя. По возможности не используйте сленг, сокращения и слишком вольные прозвища."
+        }
+        : getQuestionIntroCopy(type);
     const introBackground = type === "crossword" && lastQuestionPayload && lastQuestionPayload.crossword
         ? `<div class="crossword-intro-bg">${buildCrosswordGridHtml(lastQuestionPayload.crossword, {}, false)}</div><div class="crossword-intro-overlay"></div>`
         : "";
@@ -4016,6 +4027,7 @@ function handlePlayerMessage(raw){
         const introDelay = hasShownQuestionIntro ? 0 : Number(data.question_intro_delay || 0);
         document.getElementById("content").innerHTML = introDelay > 0 ? renderQuestionIntro(introDelay, type) : html;
         if(introDelay > 0){
+            document.body.classList.add("intro-active");
             hasShownQuestionIntro = true;
             let countdownLeft = introDelay;
             const countdownEl = document.getElementById("crosswordIntroCountdown");
@@ -4036,6 +4048,7 @@ function handlePlayerMessage(raw){
                     currentCrosswordIntroCountdownInterval = null;
                 }
                 if(lastQuestionPayload === data){
+                    document.body.classList.remove("intro-active");
                     document.getElementById("content").innerHTML = html;
                     if(type === "wordle"){
                         refreshWordleBoard();
@@ -4044,6 +4057,7 @@ function handlePlayerMessage(raw){
             }, introDelay * 1000);
         }
         if(introDelay <= 0){
+            document.body.classList.remove("intro-active");
             hasShownQuestionIntro = true;
         }
         if(type === "wordle" && introDelay <= 0){

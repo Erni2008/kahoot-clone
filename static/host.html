@@ -21,6 +21,9 @@ body{
     background:#0f172a;
     color:#fff;
 }
+body.intro-active .image-mask{
+    display:none !important;
+}
 
 
 .container{
@@ -2949,8 +2952,15 @@ function buildHostImageQuestionIntroVisual(){
 }
 
 function renderHostQuestionIntro(delaySeconds, type){
-    const copy = getHostQuestionIntroCopy(type);
     const hasImageQuestion = !!window.__hostQuestionImage;
+    const copy = hasImageQuestion && type !== "crossword"
+        ? {
+            title: "Раунд с картинкой скоро начнётся",
+            left: "Игроки увидят элемент персонажа или часть изображения. Им нужно будет понять, кто изображён, и написать точный ответ.",
+            rightTitle: "Что увидят игроки",
+            right: "Лучший результат даст точное имя без сленга, коротких прозвищ и неформальных сокращений."
+        }
+        : getHostQuestionIntroCopy(type);
     const introBackground = type === "crossword" && window.__hostCrossword
         ? `<div class="crossword-intro-bg">${buildHostCrosswordGridHtml(window.__hostCrossword, {}, false)}</div><div class="crossword-intro-overlay"></div>`
         : "";
@@ -4746,6 +4756,7 @@ async function createRoom(){
             const hostQuestionBody = container.innerHTML;
             const introDelay = hostHasShownQuestionIntro ? 0 : Number(data.question_intro_delay || 0);
             if(introDelay > 0){
+                document.body.classList.add("intro-active");
                 hostHasShownQuestionIntro = true;
                 container.innerHTML = renderHostQuestionIntro(introDelay, type);
                 let countdownLeft = introDelay;
@@ -4767,6 +4778,7 @@ async function createRoom(){
                         hostCrosswordIntroCountdownInterval = null;
                     }
                     if(container){
+                        document.body.classList.remove("intro-active");
                         container.innerHTML = hostQuestionBody;
                     }
                     if(type === "wordle"){
@@ -4775,6 +4787,7 @@ async function createRoom(){
                 }, introDelay * 1000);
             }
             if(introDelay <= 0){
+                document.body.classList.remove("intro-active");
                 hostHasShownQuestionIntro = true;
             }
 
