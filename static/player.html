@@ -298,17 +298,31 @@ button:hover { transform:scale(1.05); }
 }
 
 .crossword-intro-shell{
+    --intro-accent:#38bdf8;
+    --intro-accent-soft:rgba(56,189,248,.22);
+    --intro-warm:rgba(251,191,36,.18);
     margin-top:20px;
-    padding:28px;
-    border-radius:30px;
+    padding:30px;
+    border-radius:32px;
     background:
-        radial-gradient(circle at top, rgba(59,130,246,.2), transparent 36%),
-        radial-gradient(circle at bottom left, rgba(16,185,129,.18), transparent 34%),
-        linear-gradient(145deg, rgba(15,23,42,.97), rgba(30,41,59,.92));
-    border:1px solid rgba(148,163,184,.16);
-    box-shadow:0 36px 90px rgba(0,0,0,.36);
+        radial-gradient(circle at top, rgba(96,165,250,.26), transparent 34%),
+        radial-gradient(circle at bottom left, rgba(16,185,129,.2), transparent 36%),
+        radial-gradient(circle at 85% 18%, rgba(251,191,36,.12), transparent 20%),
+        linear-gradient(155deg, rgba(15,23,42,.98), rgba(30,41,59,.94));
+    border:1px solid rgba(148,163,184,.18);
+    box-shadow:0 32px 90px rgba(0,0,0,.34);
     position:relative;
     overflow:hidden;
+}
+
+.crossword-intro-shell::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:
+        linear-gradient(120deg, rgba(255,255,255,.08), transparent 28%, transparent 72%, rgba(255,255,255,.05)),
+        radial-gradient(circle at 20% 20%, rgba(255,255,255,.08), transparent 22%);
+    pointer-events:none;
 }
 
 .crossword-intro-bg{
@@ -333,33 +347,53 @@ button:hover { transform:scale(1.05); }
 .crossword-intro-countdown{
     position:relative;
     z-index:1;
-    width:132px;
-    height:132px;
-    margin:0 auto 18px;
+    width:126px;
+    height:126px;
+    margin:0 auto 20px;
     border-radius:999px;
     display:flex;
     align-items:center;
     justify-content:center;
-    font-size:52px;
+    font-size:48px;
     font-weight:900;
     color:#ecfeff;
     background:
-        radial-gradient(circle at 30% 30%, rgba(255,255,255,.22), transparent 30%),
-        linear-gradient(145deg, rgba(34,197,94,.34), rgba(59,130,246,.28));
-    border:1px solid rgba(255,255,255,.18);
-    box-shadow:0 22px 50px rgba(14,165,233,.22);
+        radial-gradient(circle at 30% 30%, rgba(255,255,255,.24), transparent 30%),
+        linear-gradient(145deg, rgba(34,197,94,.28), rgba(59,130,246,.34));
+    border:1px solid rgba(255,255,255,.22);
+    box-shadow:
+        0 18px 44px rgba(14,165,233,.2),
+        inset 0 1px 0 rgba(255,255,255,.16);
     animation:crosswordIntroPulse 1.2s ease-in-out infinite;
 }
 
 .crossword-intro-kicker{
     position:relative;
     z-index:1;
-    font-size:13px;
-    letter-spacing:.18em;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:8px 14px;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,.12);
+    background:rgba(255,255,255,.06);
+    backdrop-filter:blur(10px);
+    font-size:11px;
+    letter-spacing:.22em;
     text-transform:uppercase;
-    opacity:.72;
+    color:rgba(226,232,240,.78);
     font-weight:900;
-    margin-bottom:10px;
+    margin:0 auto 14px;
+    width:max-content;
+}
+
+.crossword-intro-kicker::before{
+    content:"";
+    width:8px;
+    height:8px;
+    border-radius:999px;
+    background:linear-gradient(135deg, #22c55e, #38bdf8);
+    box-shadow:0 0 14px rgba(56,189,248,.5);
 }
 
 .question-intro-visual{
@@ -367,42 +401,62 @@ button:hover { transform:scale(1.05); }
     z-index:1;
     display:grid;
     grid-template-columns:repeat(3, minmax(0, 1fr));
-    gap:12px;
-    margin-bottom:18px;
+    gap:14px;
+    margin:0 0 20px;
 }
 
 .question-intro-step{
-    padding:16px 14px;
-    border-radius:18px;
+    position:relative;
+    padding:18px 16px 16px;
+    border-radius:22px;
     border:1px solid rgba(255,255,255,.1);
-    background:linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+    background:
+        linear-gradient(160deg, rgba(255,255,255,.11), rgba(255,255,255,.04)),
+        linear-gradient(180deg, rgba(15,23,42,.16), rgba(15,23,42,.02));
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.08),
+        0 18px 36px rgba(2,6,23,.18);
     text-align:left;
+    overflow:hidden;
+}
+
+.question-intro-step::after{
+    content:"";
+    position:absolute;
+    inset:auto -30px -38px auto;
+    width:96px;
+    height:96px;
+    border-radius:999px;
+    background:radial-gradient(circle, var(--intro-accent-soft), transparent 70%);
+    pointer-events:none;
 }
 
 .question-intro-step-num{
     display:inline-flex;
     align-items:center;
     justify-content:center;
-    width:30px;
-    height:30px;
+    width:34px;
+    height:34px;
     border-radius:999px;
-    background:rgba(34,197,94,.18);
-    color:#86efac;
+    background:linear-gradient(145deg, rgba(34,197,94,.24), rgba(56,189,248,.22));
+    color:#f0fdf4;
     font-weight:900;
     font-size:14px;
     margin-bottom:12px;
+    box-shadow:0 10px 24px rgba(56,189,248,.16);
 }
 
 .question-intro-step-title{
-    font-size:16px;
+    font-size:15px;
     font-weight:800;
-    margin-bottom:6px;
+    margin-bottom:7px;
+    letter-spacing:-.01em;
 }
 
 .question-intro-step-text{
-    font-size:14px;
-    line-height:1.5;
-    color:rgba(226,232,240,.9);
+    font-size:13px;
+    line-height:1.45;
+    color:rgba(226,232,240,.88);
 }
 
 @keyframes crosswordIntroPulse{
@@ -690,6 +744,23 @@ button:hover { transform:scale(1.05); }
 }
 
 @media (max-width: 768px){
+    .crossword-intro-shell{
+        padding:18px 14px 16px;
+        border-radius:24px;
+        margin-top:14px;
+    }
+    .crossword-intro-countdown{
+        width:92px;
+        height:92px;
+        font-size:36px;
+        margin-bottom:14px;
+    }
+    .crossword-intro-kicker{
+        padding:6px 10px;
+        font-size:10px;
+        letter-spacing:.18em;
+        margin-bottom:12px;
+    }
     .crossword-shell{
         padding:18px;
         border-radius:22px;
@@ -711,6 +782,26 @@ button:hover { transform:scale(1.05); }
     }
     .question-intro-visual{
         grid-template-columns:1fr;
+        gap:10px;
+        margin-bottom:14px;
+    }
+    .question-intro-step{
+        padding:14px 12px 12px;
+        border-radius:18px;
+    }
+    .question-intro-step-num{
+        width:28px;
+        height:28px;
+        margin-bottom:10px;
+        font-size:13px;
+    }
+    .question-intro-step-title{
+        font-size:14px;
+        margin-bottom:4px;
+    }
+    .question-intro-step-text{
+        font-size:12px;
+        line-height:1.35;
     }
 }
 
@@ -2385,58 +2476,58 @@ function getQuestionIntroCopy(type){
     if(type === "crossword"){
         return {
             title: "Кроссворд скоро начнётся",
-            meta: "Нужно выбирать слова по подсказкам и постепенно собирать всю сетку.",
-            left: "После старта откроется кроссворд. Нажимайте на подсказки или прямо на клетки, чтобы выбрать активное слово. Вводите ответ в поле, и буквы сразу будут вставляться в сетку, включая пересечения.",
+            meta: "Сейчас идёт только инструкция. Сама сетка и подсказки откроются после отсчёта.",
+            left: "После старта откроются сетка и подсказки. Нажимайте на слово или клетку, чтобы выбрать ответ.",
             rightTitle: "Что делать",
-            right: "Ваша задача — разгадать как можно больше слов. Если слово пересекается с другим, общие буквы тоже будут заполняться. Сложность кроссворда выбирает ведущий."
+            right: "Начинайте с самых понятных слов. Пересечения помогут быстрее открыть остальные ответы."
         };
     }
     if(type === "wordle"){
         return {
             title: "Wordle скоро начнётся",
-            meta: "Нужно угадать слово за ограниченное число попыток.",
-            left: "После каждой попытки цвет букв покажет результат: зелёный — буква стоит на своём месте, жёлтый — буква есть в слове, но находится не там, красный — такой буквы в слове нет.",
+            meta: "Сейчас идёт только инструкция. Само слово откроется после отсчёта.",
+            left: "После старта нужно угадать слово. Зелёный — буква на месте, жёлтый — буква есть, но стоит не там, красный — такой буквы нет.",
             rightTitle: "Что делать",
-            right: "Вводите слово целиком, анализируйте подсказки по цветам и постепенно сужайте варианты. Внизу будет удобная клавиатура."
+            right: "Сначала проверяйте частые буквы, потом сужайте варианты по цветам. Не тратьте попытки на случайные слова."
         };
     }
     if(type === "mcq" || type === "fastest" || type === "poll"){
         return {
             title: "Вопрос скоро начнётся",
-            meta: "Нужно будет выбрать один или несколько вариантов ответа.",
+            meta: "Сейчас идёт только инструкция. Сам вопрос и варианты появятся после отсчёта.",
             left: type === "poll"
-                ? "После старта появятся варианты ответа. Здесь нет правильного или неправильного варианта — важен только ваш выбор."
-                : "После старта появятся варианты. Внимательно прочитайте вопрос и выберите тот ответ, который считаете правильным.",
+                ? "После старта появятся варианты ответа. Здесь нет правильного ответа: нужно просто выбрать свой вариант."
+                : "После старта появятся вопрос и готовые варианты ответа. Сначала дочитайте вопрос, потом выбирайте ответ.",
             rightTitle: "Что делать",
             right: type === "poll"
-                ? "Просто нажмите на подходящий вариант и подтвердите свой выбор."
-                : "Отвечайте быстро, но не наугад. В некоторых раундах важно не только угадать, но и сделать это раньше других."
+                ? "Выбирайте вариант, который действительно подходит вам."
+                : "В быстрых раундах важны и точность, и скорость. Не нажимайте наугад."
         };
     }
     if(type === "numeric"){
         return {
             title: "Числовой вопрос скоро начнётся",
-            meta: "Нужно будет вручную ввести числовой ответ.",
-            left: "После старта появится поле ввода. Нужно ввести только число, без слов и лишних символов.",
+            meta: "Сейчас идёт только инструкция. Сам вопрос откроется после отсчёта.",
+            left: "После старта появится поле ввода. Пишите только число без слов и единиц измерения.",
             rightTitle: "Что делать",
-            right: "Подумайте заранее и введите точный числовой ответ как можно быстрее."
+            right: "Перед отправкой проверьте формат. Лишние символы могут испортить правильный ответ."
         };
     }
     if(type === "text"){
         return {
             title: "Текстовый вопрос скоро начнётся",
-            meta: "Нужно будет самостоятельно вписать ответ текстом.",
-            left: "После старта появится поле ввода. Введите короткий и точный ответ без лишних слов, чтобы система легче его распознала.",
+            meta: "Сейчас идёт только инструкция. Сам вопрос откроется после отсчёта.",
+            left: "После старта появится поле ввода. Нужно написать короткий и точный ответ.",
             rightTitle: "Что делать",
-            right: "Старайтесь писать ответ аккуратно и по сути. Чем точнее формулировка, тем меньше шанс спорного засчёта."
+            right: "Пишите точное название без сленга, лишних слов и случайных прозвищ."
         };
     }
     return {
         title: "Раунд скоро начнётся",
-        meta: "Сейчас откроется следующий формат вопроса.",
-        left: "Через несколько секунд появится сам вопрос и можно будет отвечать.",
+        meta: "Сейчас идёт только инструкция по формату. Сам вопрос откроется после отсчёта.",
+        left: "Через несколько секунд откроется новый раунд и появится поле ответа.",
         rightTitle: "Что делать",
-        right: "Сначала прочитайте задание до конца, потом отвечайте."
+        right: "Сначала поймите формат, затем отвечайте. Скорость полезна только при уверенности."
     };
 }
 
@@ -2466,18 +2557,18 @@ function buildImageQuestionIntroVisual(){
         <div class="question-intro-visual">
             <div class="question-intro-step">
                 <div class="question-intro-step-num">1</div>
-                <div class="question-intro-step-title">Смотри на фрагмент</div>
-                <div class="question-intro-step-text">После старта откроется часть изображения. Нужно понять, кто это или чей это предмет.</div>
+                <div class="question-intro-step-title">Сначала откроется фрагмент</div>
+                <div class="question-intro-step-text">После отсчёта появится часть изображения: элемент персонажа, костюма или предмета.</div>
             </div>
             <div class="question-intro-step">
                 <div class="question-intro-step-num">2</div>
-                <div class="question-intro-step-title">Ищи детали</div>
-                <div class="question-intro-step-text">Оцени цвет, форму, костюм, фон и любые характерные элементы, которые помогут узнать персонажа.</div>
+                <div class="question-intro-step-title">Ищи характерные признаки</div>
+                <div class="question-intro-step-text">Смотрите на цвет, форму, костюм, оружие, символы и фон.</div>
             </div>
             <div class="question-intro-step">
                 <div class="question-intro-step-num">3</div>
-                <div class="question-intro-step-title">Ответь точно</div>
-                <div class="question-intro-step-text">Если это текст, пиши имя коротко и без лишних слов. Если это выбор, нажми на правильный вариант.</div>
+                <div class="question-intro-step-title">Пишите точный ответ</div>
+                <div class="question-intro-step-text">Когда вопрос откроется, назовите персонажа точно. Без сленга и лишних сокращений.</div>
             </div>
         </div>
     `;
@@ -2488,10 +2579,10 @@ function renderQuestionIntro(delaySeconds, type){
     const copy = hasImageQuestion && type !== "crossword"
         ? {
             title: "Раунд с картинкой скоро начнётся",
-            meta: "На экране будет показан элемент персонажа или предмета.",
-            left: "У вас на экране появится элемент персонажа или часть изображения. Ваша задача — понять, кто изображён, и написать точный ответ.",
+            meta: "Сейчас идёт только инструкция. Сам фрагмент и сам вопрос откроются после отсчёта.",
+            left: "У вас на экране появится часть изображения. Нужно понять, кто изображён, и написать точный ответ.",
             rightTitle: "Что делать",
-            right: "Старайтесь писать полное и точное имя. По возможности не используйте сленг, сокращения и слишком вольные прозвища."
+            right: "Пишите точное имя. Не используйте сленг, сокращения и слишком вольные прозвища."
         }
         : getQuestionIntroCopy(type);
     const introBackground = type === "crossword" && lastQuestionPayload && lastQuestionPayload.crossword

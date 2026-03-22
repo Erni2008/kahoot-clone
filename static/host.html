@@ -327,17 +327,31 @@ button:hover::after{
 }
 
 .crossword-intro-shell{
+    --intro-accent:#38bdf8;
+    --intro-accent-soft:rgba(56,189,248,.22);
+    --intro-warm:rgba(251,191,36,.18);
     margin-top:20px;
-    padding:28px;
-    border-radius:30px;
+    padding:30px;
+    border-radius:32px;
     background:
-        radial-gradient(circle at top, rgba(59,130,246,.2), transparent 36%),
-        radial-gradient(circle at bottom left, rgba(16,185,129,.18), transparent 34%),
-        linear-gradient(145deg, rgba(15,23,42,.97), rgba(30,41,59,.92));
-    border:1px solid rgba(148,163,184,.16);
-    box-shadow:0 36px 90px rgba(0,0,0,.36);
+        radial-gradient(circle at top, rgba(96,165,250,.26), transparent 34%),
+        radial-gradient(circle at bottom left, rgba(16,185,129,.2), transparent 36%),
+        radial-gradient(circle at 85% 18%, rgba(251,191,36,.12), transparent 20%),
+        linear-gradient(155deg, rgba(15,23,42,.98), rgba(30,41,59,.94));
+    border:1px solid rgba(148,163,184,.18);
+    box-shadow:0 32px 90px rgba(0,0,0,.34);
     position:relative;
     overflow:hidden;
+}
+
+.crossword-intro-shell::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:
+        linear-gradient(120deg, rgba(255,255,255,.08), transparent 28%, transparent 72%, rgba(255,255,255,.05)),
+        radial-gradient(circle at 20% 20%, rgba(255,255,255,.08), transparent 22%);
+    pointer-events:none;
 }
 
 .crossword-intro-bg{
@@ -362,33 +376,53 @@ button:hover::after{
 .crossword-intro-countdown{
     position:relative;
     z-index:1;
-    width:132px;
-    height:132px;
-    margin:0 auto 18px;
+    width:126px;
+    height:126px;
+    margin:0 auto 20px;
     border-radius:999px;
     display:flex;
     align-items:center;
     justify-content:center;
-    font-size:52px;
+    font-size:48px;
     font-weight:900;
     color:#ecfeff;
     background:
-        radial-gradient(circle at 30% 30%, rgba(255,255,255,.22), transparent 30%),
-        linear-gradient(145deg, rgba(34,197,94,.34), rgba(59,130,246,.28));
-    border:1px solid rgba(255,255,255,.18);
-    box-shadow:0 22px 50px rgba(14,165,233,.22);
+        radial-gradient(circle at 30% 30%, rgba(255,255,255,.24), transparent 30%),
+        linear-gradient(145deg, rgba(34,197,94,.28), rgba(59,130,246,.34));
+    border:1px solid rgba(255,255,255,.22);
+    box-shadow:
+        0 18px 44px rgba(14,165,233,.2),
+        inset 0 1px 0 rgba(255,255,255,.16);
     animation:crosswordIntroPulse 1.2s ease-in-out infinite;
 }
 
 .crossword-intro-kicker{
     position:relative;
     z-index:1;
-    font-size:13px;
-    letter-spacing:.18em;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:8px 14px;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,.12);
+    background:rgba(255,255,255,.06);
+    backdrop-filter:blur(10px);
+    font-size:11px;
+    letter-spacing:.22em;
     text-transform:uppercase;
-    opacity:.72;
+    color:rgba(226,232,240,.78);
     font-weight:900;
-    margin-bottom:10px;
+    margin:0 auto 14px;
+    width:max-content;
+}
+
+.crossword-intro-kicker::before{
+    content:"";
+    width:8px;
+    height:8px;
+    border-radius:999px;
+    background:linear-gradient(135deg, #22c55e, #38bdf8);
+    box-shadow:0 0 14px rgba(56,189,248,.5);
 }
 
 .question-intro-visual{
@@ -396,42 +430,62 @@ button:hover::after{
     z-index:1;
     display:grid;
     grid-template-columns:repeat(3, minmax(0, 1fr));
-    gap:12px;
-    margin-bottom:18px;
+    gap:14px;
+    margin:0 0 20px;
 }
 
 .question-intro-step{
-    padding:16px 14px;
-    border-radius:18px;
+    position:relative;
+    padding:18px 16px 16px;
+    border-radius:22px;
     border:1px solid rgba(255,255,255,.1);
-    background:linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+    background:
+        linear-gradient(160deg, rgba(255,255,255,.11), rgba(255,255,255,.04)),
+        linear-gradient(180deg, rgba(15,23,42,.16), rgba(15,23,42,.02));
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.08),
+        0 18px 36px rgba(2,6,23,.18);
     text-align:left;
+    overflow:hidden;
+}
+
+.question-intro-step::after{
+    content:"";
+    position:absolute;
+    inset:auto -30px -38px auto;
+    width:96px;
+    height:96px;
+    border-radius:999px;
+    background:radial-gradient(circle, var(--intro-accent-soft), transparent 70%);
+    pointer-events:none;
 }
 
 .question-intro-step-num{
     display:inline-flex;
     align-items:center;
     justify-content:center;
-    width:30px;
-    height:30px;
+    width:34px;
+    height:34px;
     border-radius:999px;
-    background:rgba(34,197,94,.18);
-    color:#86efac;
+    background:linear-gradient(145deg, rgba(34,197,94,.24), rgba(56,189,248,.22));
+    color:#f0fdf4;
     font-weight:900;
     font-size:14px;
     margin-bottom:12px;
+    box-shadow:0 10px 24px rgba(56,189,248,.16);
 }
 
 .question-intro-step-title{
-    font-size:16px;
+    font-size:15px;
     font-weight:800;
-    margin-bottom:6px;
+    margin-bottom:7px;
+    letter-spacing:-.01em;
 }
 
 .question-intro-step-text{
-    font-size:14px;
-    line-height:1.5;
-    color:rgba(226,232,240,.9);
+    font-size:13px;
+    line-height:1.45;
+    color:rgba(226,232,240,.88);
 }
 
 @keyframes crosswordIntroPulse{
@@ -727,6 +781,23 @@ button:hover::after{
 }
 
 @media (max-width: 768px){
+    .crossword-intro-shell{
+        padding:18px 14px 16px;
+        border-radius:24px;
+        margin-top:14px;
+    }
+    .crossword-intro-countdown{
+        width:92px;
+        height:92px;
+        font-size:36px;
+        margin-bottom:14px;
+    }
+    .crossword-intro-kicker{
+        padding:6px 10px;
+        font-size:10px;
+        letter-spacing:.18em;
+        margin-bottom:12px;
+    }
     .crossword-shell{
         padding:18px;
         border-radius:22px;
@@ -748,6 +819,26 @@ button:hover::after{
     }
     .question-intro-visual{
         grid-template-columns:1fr;
+        gap:10px;
+        margin-bottom:14px;
+    }
+    .question-intro-step{
+        padding:14px 12px 12px;
+        border-radius:18px;
+    }
+    .question-intro-step-num{
+        width:28px;
+        height:28px;
+        margin-bottom:10px;
+        font-size:13px;
+    }
+    .question-intro-step-title{
+        font-size:14px;
+        margin-bottom:4px;
+    }
+    .question-intro-step-text{
+        font-size:12px;
+        line-height:1.35;
     }
 }
 
@@ -2863,48 +2954,50 @@ function getHostQuestionIntroCopy(type){
     if(type === "crossword"){
         return {
             title: "Кроссворд скоро начнётся",
-            left: "Сначала игроки увидят короткую инструкцию. После отсчёта откроется сетка кроссворда, и они смогут выбирать подсказки или клетки, чтобы отвечать по отдельным словам.",
+            left: "Сейчас игроки видят только инструкцию. После отсчёта откроются сетка и подсказки.",
             rightTitle: "Что увидят игроки",
-            right: "Вы можете выбрать для них уровень сложности: Лёгкий, Нормальный или Сложный. Игроки будут постепенно заполнять сетку, а буквы в пересечениях будут вставляться автоматически."
+            right: "Игроки будут собирать сетку постепенно. Лучше всего начинать с самых понятных слов."
         };
     }
     if(type === "wordle"){
         return {
             title: "Wordle скоро начнётся",
-            left: "Игроки увидят короткое напоминание о правилах, затем поле для попыток и клавиатуру для ввода.",
+            left: "Сейчас игроки видят только инструкцию. После отсчёта появятся поле попыток и клавиатура.",
             rightTitle: "Что увидят игроки",
-            right: "Они будут угадывать слово по цветам букв и постепенно сужать варианты до правильного ответа."
+            right: "Они будут идти по цветовым подсказкам: сначала искать буквы, потом уточнять позиции."
         };
     }
     if(type === "mcq" || type === "fastest" || type === "poll"){
         return {
             title: "Вопрос скоро начнётся",
-            left: "Сейчас будет короткий экран подготовки, а затем у игроков появятся варианты ответа.",
+            left: "Сейчас у игроков только экран подготовки. После отсчёта появятся вопрос и варианты ответа.",
             rightTitle: "Что увидят игроки",
-            right: type === "poll" ? "Они просто выберут вариант, который считают подходящим." : "Они выберут правильный вариант, а в быстрых раундах важна ещё и скорость ответа."
+            right: type === "poll"
+                ? "Они просто выберут вариант, который считают подходящим. Здесь важен сам выбор, а не точность угадывания."
+                : "Они будут выбирать правильный вариант. В быстрых раундах важны и точность, и скорость."
         };
     }
     if(type === "numeric"){
         return {
             title: "Числовой вопрос скоро начнётся",
-            left: "После отсчёта игроки увидят поле для ввода числа и должны будут ввести ответ вручную.",
+            left: "Сейчас игроки видят только инструкцию. После отсчёта появится поле для ввода числа.",
             rightTitle: "Что увидят игроки",
-            right: "Им нужно будет ввести только число, без слов и без дополнительных символов."
+            right: "Этот формат чувствителен к записи. Лишние слова и единицы измерения могут испортить ответ."
         };
     }
     if(type === "text"){
         return {
             title: "Текстовый вопрос скоро начнётся",
-            left: "После отсчёта игроки увидят поле для короткого текстового ответа и введут его вручную.",
+            left: "Сейчас игроки видят только инструкцию. После отсчёта появится поле для короткого ответа.",
             rightTitle: "Что увидят игроки",
-            right: "Им нужно будет написать ответ максимально точно и без лишних слов."
+            right: "Лучший результат даст точное название без сленга, лишних слов и сокращений."
         };
     }
     return {
         title: "Раунд скоро начнётся",
-        left: "Сейчас будет короткий intro, а затем откроется сам вопрос.",
+        left: "Сейчас игроки видят только intro по формату. Сам вопрос откроется только после окончания отсчёта.",
         rightTitle: "Что увидят игроки",
-        right: "Они смогут отвечать сразу после окончания отсчёта."
+        right: "До окончания отсчёта они видят только инструкцию по типу задания, а отвечать смогут сразу после старта."
     };
 }
 
@@ -2934,18 +3027,18 @@ function buildHostImageQuestionIntroVisual(){
         <div class="question-intro-visual">
             <div class="question-intro-step">
                 <div class="question-intro-step-num">1</div>
-                <div class="question-intro-step-title">Игроки увидят фрагмент</div>
-                <div class="question-intro-step-text">На старте откроется часть изображения. Им нужно распознать персонажа или предмет по детали.</div>
+                <div class="question-intro-step-title">Сначала у них будет фрагмент</div>
+                <div class="question-intro-step-text">После отсчёта игроки увидят часть изображения: элемент персонажа, костюма или предмета.</div>
             </div>
             <div class="question-intro-step">
                 <div class="question-intro-step-num">2</div>
-                <div class="question-intro-step-title">Они будут искать зацепки</div>
-                <div class="question-intro-step-text">Цвета, форма, броня, символы и фон помогут понять, кто изображён на фрагменте.</div>
+                <div class="question-intro-step-title">Они будут искать признаки</div>
+                <div class="question-intro-step-text">Цвета, форма, броня, символы, оружие и фон помогут понять, кто изображён.</div>
             </div>
             <div class="question-intro-step">
                 <div class="question-intro-step-num">3</div>
-                <div class="question-intro-step-title">Ответ после отсчёта</div>
-                <div class="question-intro-step-text">Если вопрос текстовый, они введут имя. Если это выбор, они нажмут на нужный вариант.</div>
+                <div class="question-intro-step-title">Нужен точный ответ</div>
+                <div class="question-intro-step-text">После открытия вопроса игрокам лучше писать точное имя без сленга и лишних сокращений.</div>
             </div>
         </div>
     `;
@@ -2956,9 +3049,9 @@ function renderHostQuestionIntro(delaySeconds, type){
     const copy = hasImageQuestion && type !== "crossword"
         ? {
             title: "Раунд с картинкой скоро начнётся",
-            left: "Игроки увидят элемент персонажа или часть изображения. Им нужно будет понять, кто изображён, и написать точный ответ.",
+            left: "Сейчас игроки видят только инструкцию. После отсчёта они увидят часть изображения и должны будут понять, кто изображён.",
             rightTitle: "Что увидят игроки",
-            right: "Лучший результат даст точное имя без сленга, коротких прозвищ и неформальных сокращений."
+            right: "Лучший результат даст точное имя без сленга и лишних сокращений. До конца отсчёта сам фрагмент не показывается."
         }
         : getHostQuestionIntroCopy(type);
     const introBackground = type === "crossword" && window.__hostCrossword
