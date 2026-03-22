@@ -359,6 +359,49 @@ button:hover { transform:scale(1.05); }
     margin-bottom:10px;
 }
 
+.question-intro-visual{
+    position:relative;
+    z-index:1;
+    display:grid;
+    grid-template-columns:repeat(3, minmax(0, 1fr));
+    gap:12px;
+    margin-bottom:18px;
+}
+
+.question-intro-step{
+    padding:16px 14px;
+    border-radius:18px;
+    border:1px solid rgba(255,255,255,.1);
+    background:linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+    text-align:left;
+}
+
+.question-intro-step-num{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:30px;
+    height:30px;
+    border-radius:999px;
+    background:rgba(34,197,94,.18);
+    color:#86efac;
+    font-weight:900;
+    font-size:14px;
+    margin-bottom:12px;
+}
+
+.question-intro-step-title{
+    font-size:16px;
+    font-weight:800;
+    margin-bottom:6px;
+}
+
+.question-intro-step-text{
+    font-size:14px;
+    line-height:1.5;
+    color:rgba(226,232,240,.9);
+}
+
 @keyframes crosswordIntroPulse{
     0%,100%{
         transform:scale(1);
@@ -662,6 +705,9 @@ button:hover { transform:scale(1.05); }
     }
     .crossword-input{
         font-size:18px;
+    }
+    .question-intro-visual{
+        grid-template-columns:1fr;
     }
 }
 
@@ -2412,16 +2458,41 @@ function buildQuestionImageHtml(imageSrc, zoom, position, offset){
     `;
 }
 
+function buildImageQuestionIntroVisual(){
+    return `
+        <div class="question-intro-visual">
+            <div class="question-intro-step">
+                <div class="question-intro-step-num">1</div>
+                <div class="question-intro-step-title">Смотри на фрагмент</div>
+                <div class="question-intro-step-text">После старта откроется часть изображения. Нужно понять, кто это или чей это предмет.</div>
+            </div>
+            <div class="question-intro-step">
+                <div class="question-intro-step-num">2</div>
+                <div class="question-intro-step-title">Ищи детали</div>
+                <div class="question-intro-step-text">Оцени цвет, форму, костюм, фон и любые характерные элементы, которые помогут узнать персонажа.</div>
+            </div>
+            <div class="question-intro-step">
+                <div class="question-intro-step-num">3</div>
+                <div class="question-intro-step-title">Ответь точно</div>
+                <div class="question-intro-step-text">Если это текст, пиши имя коротко и без лишних слов. Если это выбор, нажми на правильный вариант.</div>
+            </div>
+        </div>
+    `;
+}
+
 function renderQuestionIntro(delaySeconds, type){
     const copy = getQuestionIntroCopy(type);
+    const hasImageQuestion = !!(lastQuestionPayload && lastQuestionPayload.image);
     const introBackground = type === "crossword" && lastQuestionPayload && lastQuestionPayload.crossword
         ? `<div class="crossword-intro-bg">${buildCrosswordGridHtml(lastQuestionPayload.crossword, {}, false)}</div><div class="crossword-intro-overlay"></div>`
         : "";
+    const introVisual = hasImageQuestion && type !== "crossword" ? buildImageQuestionIntroVisual() : "";
     return `
         <div class="crossword-intro-shell">
             ${introBackground}
             <div class="crossword-intro-countdown" id="crosswordIntroCountdown">${delaySeconds}</div>
             <div class="crossword-intro-kicker">Подготовка к раунду</div>
+            ${introVisual}
             <div class="crossword-header">
                 <div class="crossword-active-card">
                     <div class="crossword-active-title">${copy.title}</div>
