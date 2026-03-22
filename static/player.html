@@ -1872,7 +1872,7 @@ function updateWordleHintMeta(){
 }
 
 function setWaitingContent(message){
-  document.getElementById("content").innerHTML = `<div class='waiting'>${message}</div>`;
+  document.getElementById("content").innerHTML = `<div class='waiting'>${escapeHtml(message)}</div>`;
 }
 
 function renderFatalPlayerError(message){
@@ -1883,7 +1883,7 @@ function renderFatalPlayerError(message){
   const hasActiveSession = !!(wsJoin && wsJoin.pin && wsJoin.name);
   if(joinVisible && !hasActiveSession){
     if(error){
-      error.innerHTML = `<div class='error'>${String(message || "Ошибка загрузки страницы")}</div>`;
+      error.innerHTML = `<div class='error'>${escapeHtml(String(message || "Ошибка загрузки страницы"))}</div>`;
     }
     setJoinButtonLoading(false);
     resetJoinUiState();
@@ -2323,6 +2323,15 @@ function clearPendingTimerStart(){
     }
 }
 
+function escapeHtml(str){
+    return String(str)
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
+}
+
 function getQuestionIntroCopy(type){
     if(type === "crossword"){
         return {
@@ -2382,6 +2391,27 @@ function getQuestionIntroCopy(type){
     };
 }
 
+function buildQuestionImageHtml(imageSrc, zoom, position, offset){
+    if(!imageSrc) return "";
+    const safeImageUrl = encodeURI(String(imageSrc)).replace(/'/g, "%27").replace(/"/g, "%22");
+    const safePosition = typeof position === "string" && position.trim() ? position.trim() : "50% 50%";
+    const [rawPosX = "50%", rawPosY = "50%"] = safePosition.split(/\s+/, 2);
+    const offsetX = offset && typeof offset.x !== "undefined" ? Number(offset.x) || 0 : 0;
+    const offsetY = offset && typeof offset.y !== "undefined" ? Number(offset.y) || 0 : 0;
+    const finalPosX = `calc(${rawPosX} + ${offsetX}px)`;
+    const finalPosY = `calc(${rawPosY} + ${offsetY}px)`;
+    const safeZoom = Number(zoom) > 0 ? Number(zoom) : 3;
+    return `
+        <div class="image-mask"
+             style="
+                background-image:url('${safeImageUrl}');
+                background-size:${safeZoom * 100}%;
+                background-position:${finalPosX} ${finalPosY};
+             ">
+        </div>
+    `;
+}
+
 function renderQuestionIntro(delaySeconds, type){
     const copy = getQuestionIntroCopy(type);
     const introBackground = type === "crossword" && lastQuestionPayload && lastQuestionPayload.crossword
@@ -2424,16 +2454,16 @@ function renderCrosswordQuestion(crossword, values, readonly){
         html += `
             <div class="crossword-header">
                 <div class="crossword-active-card">
-                    <div class="crossword-active-title">Активный вопрос: ${activeWord.number}. ${activeWord.clue}</div>
+                    <div class="crossword-active-title">Активный вопрос: ${activeWord.number}. ${escapeHtml(activeWord.clue)}</div>
                     <div class="crossword-active-meta">${activeWord.direction === "down" ? "Вниз" : "По горизонтали"} • ${activeWord.length} букв</div>
-                    <input ${readonly ? "disabled" : ""} class="crossword-input" id="crosswordActiveInput" maxlength="${activeWord.length}" type="text" value="${activeValue.replace(/"/g, "&quot;")}" oninput="updateCrosswordWord('${activeWord.id}', this.value)" placeholder="Введите слово">
+                    <input ${readonly ? "disabled" : ""} class="crossword-input" id="crosswordActiveInput" maxlength="${activeWord.length}" type="text" value="${escapeHtml(activeValue)}" oninput="updateCrosswordWord('${activeWord.id}', this.value)" placeholder="Введите слово">
                 </div>
                 <div class="crossword-help-card">
                     <div class="crossword-help-title">Как играть</div>
                     <div class="crossword-help-text">Выбирайте подсказку ниже или нажимайте на клетки в сетке. Активное слово подсвечивается, а буквы сразу встают в кроссворд.</div>
                     ${Array.isArray(currentCrosswordDifficulties) && currentCrosswordDifficulties.length ? `
                         <div class="crossword-difficulties">
-                            ${currentCrosswordDifficulties.map((item)=>`<div class="crossword-difficulty-chip${item.id === currentCrosswordSelectedDifficulty ? " active" : ""}">${item.label}</div>`).join("")}
+                            ${currentCrosswordDifficulties.map((item)=>`<div class="crossword-difficulty-chip${item.id === currentCrosswordSelectedDifficulty ? " active" : ""}">${escapeHtml(item.label)}</div>`).join("")}
                         </div>
                     ` : ""}
                 </div>
@@ -2448,9 +2478,9 @@ function renderCrosswordQuestion(crossword, values, readonly){
             const solved = readonly && word.answer && normalizeCrosswordWord(currentValue) === normalizeCrosswordWord(word.answer);
             groupHtml += `
                 <button type="button" class="crossword-clue${word.id === activeId ? " active" : ""}${currentValue ? " filled" : ""}${solved ? " solved" : ""}" onclick="selectCrosswordWord('${word.id}')">
-                    <div class="crossword-clue-title"><span class="crossword-clue-number">${word.number}</span>${word.clue}</div>
+                    <div class="crossword-clue-title"><span class="crossword-clue-number">${word.number}</span>${escapeHtml(word.clue)}</div>
                     <div class="crossword-clue-meta">${word.length} букв</div>
-                    <div class="crossword-clue-value">${currentValue || "Пока пусто"}</div>
+                    <div class="crossword-clue-value">${currentValue ? escapeHtml(currentValue) : "Пока пусто"}</div>
                 </button>
             `;
         });
@@ -2815,7 +2845,7 @@ function showPlayerDraftScreen(){
     });
     shuffleEl.innerHTML = allMembers.map((member, index)=>`
         <div style="padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.08);font-weight:800;text-align:center;animation:leaderboardCardIn .35s cubic-bezier(.16,1,.3,1) both;animation-delay:${index * 0.03}s;">
-            ${member}
+            ${escapeHtml(member)}
         </div>
     `).join("");
 
@@ -2833,12 +2863,12 @@ function showPlayerDraftScreen(){
             ">
                 <div style="font-size:24px;font-weight:900;display:flex;align-items:center;gap:10px;">
                     <span style="width:12px;height:12px;border-radius:999px;background:${myTeam.color || "#00ffcc"};box-shadow:0 0 14px ${myTeam.color || "#00ffcc"};"></span>
-                    ${myTeam.name || `Команда ${myTeam.id || "?"}`}
+                    ${escapeHtml(myTeam.name || `Команда ${myTeam.id || "?"}`)}
                 </div>
                 <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px;">
                     ${(Array.isArray(myTeam.members) ? myTeam.members : []).map((member, index)=>`
                         <div style="padding:12px 14px;border-radius:14px;background:${member === myName ? "rgba(0,255,204,.16)" : "rgba(255,255,255,.08)"};transform:translateY(8px);animation:leaderboardCardIn .45s cubic-bezier(.16,1,.3,1) both;animation-delay:${index * 0.06}s;">
-                            ${member === myName ? "⭐ " : ""}${member}
+                            ${member === myName ? "⭐ " : ""}${escapeHtml(member)}
                         </div>
                     `).join("")}
                 </div>
@@ -3055,12 +3085,12 @@ function renderPlayerTeamPanel(){
         <div style="font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:#9be7d8;font-weight:800;">Командный режим</div>
         <div style="font-size:24px;font-weight:900;margin-top:6px;display:flex;align-items:center;gap:10px;">
             <span style="width:12px;height:12px;border-radius:999px;background:${myTeam.color || "#00ffcc"};box-shadow:0 0 14px ${myTeam.color || "#00ffcc"};"></span>
-            ${myTeam.name || `Команда ${myTeam.id || "?"}`}
+            ${escapeHtml(myTeam.name || `Команда ${myTeam.id || "?"}`)}
         </div>
         <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
             ${(Array.isArray(myTeam.members) ? myTeam.members : []).map((member, index)=>`
                 <div style="padding:10px 12px;border-radius:12px;background:${member === myName ? "rgba(0,255,204,0.18)" : "rgba(255,255,255,0.08)"};transform:translateY(6px);animation:leaderboardCardIn .45s cubic-bezier(.16,1,.3,1) both;animation-delay:${index * 0.06}s;">
-                    ${member === myName ? "⭐ " : ""}${member}
+                    ${member === myName ? "⭐ " : ""}${escapeHtml(member)}
                 </div>
             `).join("")}
         </div>
@@ -3093,10 +3123,10 @@ function renderPlayerTeamLeaderboard(teamLeaderboard){
                 ">
                     <div style="font-weight:900;display:flex;align-items:center;gap:10px;">
                         <span style="width:12px;height:12px;border-radius:999px;background:${team.color || "#00ffcc"};box-shadow:0 0 14px ${team.color || "#00ffcc"};"></span>
-                        ${index + 1}. ${team.name || `Команда ${team.id || index + 1}`}
+                        ${index + 1}. ${escapeHtml(team.name || `Команда ${team.id || index + 1}`)}
                     </div>
                     <div style="margin-top:4px;font-size:22px;font-weight:900;">${Number(team.score || 0)} очков</div>
-                    <div style="margin-top:8px;opacity:.82;">${(Array.isArray(team.members) ? team.members : []).join(" • ")}</div>
+                    <div style="margin-top:8px;opacity:.82;">${(Array.isArray(team.members) ? team.members : []).map(escapeHtml).join(" • ")}</div>
                 </div>
             `).join("")}
         </div>
@@ -3169,7 +3199,7 @@ function renderLiveLeaderboard(leaderboard){
 
         row.innerHTML = `
             <div>
-                ${medal} ${position} место — ${player[0]}
+                ${medal} ${position} место — ${escapeHtml(player[0])}
                 ${isMe ? " 👉 Вы" : ""}
                 ${badge}
             </div>
@@ -3785,9 +3815,9 @@ function handlePlayerMessage(raw){
         currentCrosswordDifficulties = Array.isArray(data.crossword_difficulties) ? data.crossword_difficulties : [];
         currentCrosswordSelectedDifficulty = String(data.crossword_selected_difficulty || "");
 
-        html += `<div class="question-title">${data.question}</div>`;
+        html += `<div class="question-title">${escapeHtml(data.question)}</div>`;
         if(data.prompt){
-            html += `<div class="audio-note" style="margin-top:14px;font-size:20px;line-height:1.6;">${data.prompt}</div>`;
+            html += `<div class="audio-note" style="margin-top:14px;font-size:20px;line-height:1.6;">${escapeHtml(data.prompt)}</div>`;
         }
 
         if(type === "wordle"){
@@ -3827,24 +3857,7 @@ function handlePlayerMessage(raw){
         }
 
         if(data.image){
-            const zoom = data.image_zoom || 3;
-            const position = data.image_position || "50% 50%";
-            const offsetX = data.image_offset && typeof data.image_offset.x !== "undefined" ? data.image_offset.x : 0;
-            const offsetY = data.image_offset && typeof data.image_offset.y !== "undefined" ? data.image_offset.y : 0;
-
-            const [posX, posY] = position.split(" ");
-            const finalPosX = `calc(${posX} + ${offsetX}px)`;
-            const finalPosY = `calc(${posY} + ${offsetY}px)`;
-
-            html += `
-                <div class="image-mask"
-                     style="
-                        background-image:url('${data.image}');
-                        background-size:${zoom * 100}%;
-                        background-position:${finalPosX} ${finalPosY};
-                     ">
-                </div>
-            `;
+            html += buildQuestionImageHtml(data.image, data.image_zoom, data.image_position, data.image_offset);
         }
 
         // Backend now sends max_select
@@ -3859,8 +3872,9 @@ function handlePlayerMessage(raw){
         // ===== MULTIPLE CHOICE / FASTEST =====
         if(type === "mcq" || type === "fastest" || type === "poll"){
             const colors=["red","blue","yellow","green"];
-            data.answers.forEach((a,i)=>{
-                html+=`<button class="answer-card ${colors[i]||"red"}" onclick="answerMCQ(${i}, this)">${a}</button>`;
+            const safeAnswers = Array.isArray(data.answers) ? data.answers : [];
+            safeAnswers.forEach((a,i)=>{
+                html+=`<button class="answer-card ${colors[i]||"red"}" onclick="answerMCQ(${i}, this)">${escapeHtml(a)}</button>`;
             });
         }
 
@@ -4010,7 +4024,7 @@ function handlePlayerMessage(raw){
         <div class="timer-text" id="timerText"></div>
     </div>
 </div>
-<div class="question-title">${String(data.question || "Вопрос загружен")}</div>
+<div class="question-title">${escapeHtml(String(data.question || "Вопрос загружен"))}</div>
 <div class="audio-note" style="margin-top:14px;font-size:18px;line-height:1.6;">Не удалось полностью отрисовать этот вопрос на устройстве. Попробуйте обновить страницу после раунда.</div>
             `;
             document.getElementById("joinSection").style.display="none";
@@ -4121,7 +4135,7 @@ function handlePlayerMessage(raw){
                 html += `
                     <div class='podium-card podium-second podium-show-2'>
                         <div style="font-size:40px;">🥈</div>
-                        <div>${second[0]}</div>
+                        <div>${escapeHtml(second[0])}</div>
                         <div style="margin-top:8px;">${second[1]} очков</div>
                         ${data.streaks && data.streaks[second[0]] > 1 ? `<div style="margin-top:6px;font-size:14px;">🔥 Серия x${data.streaks[second[0]]}</div>` : ``}
                     </div>
@@ -4132,7 +4146,7 @@ function handlePlayerMessage(raw){
                 html += `
                     <div class='podium-card podium-first glow'>
                         <div style="font-size:48px;">🥇</div>
-                        <div>${first[0]}</div>
+                        <div>${escapeHtml(first[0])}</div>
                         <div style="margin-top:8px;">${first[1]} очков</div>
                         ${data.streaks && data.streaks[first[0]] > 1 ? `<div style="margin-top:6px;font-size:14px;">🔥 Серия x${data.streaks[first[0]]}</div>` : ``}
                     </div>
@@ -4143,7 +4157,7 @@ function handlePlayerMessage(raw){
                 html += `
                     <div class='podium-card podium-third podium-show-3'>
                         <div style="font-size:40px;">🥉</div>
-                        <div>${third[0]}</div>
+                        <div>${escapeHtml(third[0])}</div>
                         <div style="margin-top:8px;">${third[1]} очков</div>
                         ${data.streaks && data.streaks[third[0]] > 1 ? `<div style="margin-top:6px;font-size:14px;">🔥 Серия x${data.streaks[third[0]]}</div>` : ``}
                     </div>
@@ -4173,7 +4187,7 @@ function handlePlayerMessage(raw){
                             border:${isMe ? '2px solid #00ffcc' : 'none'};
                             font-size:18px;
                             font-weight:800;">
-                            ${realIndex} место — ${player[0]} → ${player[1]} очков $
+                            ${realIndex} место — ${escapeHtml(player[0])} → ${player[1]} очков $
                         </div>
                     `;
                 });

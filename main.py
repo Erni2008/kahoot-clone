@@ -6,6 +6,8 @@ import string
 import time
 import asyncio
 import json
+import os
+import unicodedata
 from typing import Dict
 from difflib import SequenceMatcher
 from collections import deque
@@ -47,6 +49,56 @@ WS_SEND_TIMEOUT = 2.0
 ADMIN_LOG_LIMIT = 2000
 WARNING_PENALTY_POINTS = 500
 WORDLE_HINT_COST = 350
+STATIC_IMAGES_DIR = os.path.join(os.path.dirname(__file__), "static", "images")
+STATIC_AUDIOS_DIR = os.path.join(os.path.dirname(__file__), "static", "audios")
+
+
+def _normalize_asset_name(name: str) -> str:
+    return unicodedata.normalize("NFC", str(name or "")).casefold()
+
+
+def resolve_static_image_path(path: str | None) -> str | None:
+    if not path:
+        return path
+    path_str = str(path).strip()
+    if not path_str.startswith("/static/images/"):
+        return path_str
+    filename = path_str.split("/static/images/", 1)[1]
+    if not filename:
+        return path_str
+    candidate = os.path.join(STATIC_IMAGES_DIR, filename)
+    if os.path.exists(candidate):
+        return path_str
+    normalized_lookup = _normalize_asset_name(filename)
+    try:
+        for actual_name in os.listdir(STATIC_IMAGES_DIR):
+            if _normalize_asset_name(actual_name) == normalized_lookup:
+                return f"/static/images/{actual_name}"
+    except FileNotFoundError:
+        return path_str
+    return path_str
+
+
+def resolve_static_audio_path(path: str | None) -> str | None:
+    if not path:
+        return path
+    path_str = str(path).strip()
+    if not path_str.startswith("/static/audios/"):
+        return path_str
+    filename = path_str.split("/static/audios/", 1)[1]
+    if not filename:
+        return path_str
+    candidate = os.path.join(STATIC_AUDIOS_DIR, filename)
+    if os.path.exists(candidate):
+        return path_str
+    normalized_lookup = _normalize_asset_name(filename)
+    try:
+        for actual_name in os.listdir(STATIC_AUDIOS_DIR):
+            if _normalize_asset_name(actual_name) == normalized_lookup:
+                return f"/static/audios/{actual_name}"
+    except FileNotFoundError:
+        return path_str
+    return path_str
 
 def _similarity_percent(a: str, b: str) -> int:
     if not a or not b:
@@ -1880,7 +1932,7 @@ QUIZZES = {
     "Угадай персонажа по звуку": [
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/Терракс.mp3",
             "correct": ["Терракс","Теракс"],
             "time": 25,
@@ -1888,7 +1940,7 @@ QUIZZES = {
         },
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/Фьюри.mp3",
             "correct": ["Фьюри","Ник Фьюри"],
             "time": 25,
@@ -1896,7 +1948,7 @@ QUIZZES = {
         },
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/Хеймдаль.mp3",
             "correct": ["Хеймдаль"],
             "time": 25,
@@ -1904,7 +1956,7 @@ QUIZZES = {
         },
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/Призрак.mp3",
             "correct": ["Призрак"],
             "time": 25,
@@ -1912,7 +1964,7 @@ QUIZZES = {
         },
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/Эйгон.mp3",
             "correct": ["Эйгон"],
             "time": 25,
@@ -1920,7 +1972,7 @@ QUIZZES = {
         },
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/Ртуть.mp3",
             "correct": ["Ртуть"],
             "time": 25,
@@ -1928,7 +1980,7 @@ QUIZZES = {
         },
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/СпецКула.mp3",
             "correct": ["Кулл Обсидиан","Кулл"],
             "time": 25,
@@ -1936,7 +1988,7 @@ QUIZZES = {
         },
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/ТяжКула.mp3",
             "correct": ["Кулл Обсидиан","Кулл"],
             "time": 25,
@@ -1944,7 +1996,7 @@ QUIZZES = {
         },
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/Минору.mp3",
             "correct": ["Нико Минору","Минору"],
             "time": 25,
@@ -1952,7 +2004,7 @@ QUIZZES = {
         },
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/модок.mp3",
             "correct": ["М.О.Д.О.К","Модок"],
             "time": 25,
@@ -1960,7 +2012,7 @@ QUIZZES = {
         },
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/Оса.mp3",
             "correct": ["Оса"],
             "time": 25,
@@ -1968,7 +2020,7 @@ QUIZZES = {
         },
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/Печенька.mp3",
             "correct": ["Печенька"],
             "time": 25,
@@ -1976,7 +2028,7 @@ QUIZZES = {
         },
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/Призрак.mp3",
             "correct": ["Призрак"],
             "time": 25,
@@ -1984,7 +2036,7 @@ QUIZZES = {
         },
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/Анига.mp3",
             "correct": ["Анигилус","Анига"],
             "time": 25,
@@ -1992,7 +2044,7 @@ QUIZZES = {
         },
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/Апок.mp3",
             "correct": ["Апокалипсис","Апок"],
             "time": 25,
@@ -2000,7 +2052,7 @@ QUIZZES = {
         },
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/ГражданскийВоин.mp3",
             "correct": ["Воин","Гражданский Воин","Гражданский"],
             "time": 25,
@@ -2008,7 +2060,7 @@ QUIZZES = {
         },
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/ДжекФонарь.mp3",
             "correct": ["Джек","Джек Фонарь","Фонарь"],
             "time": 25,
@@ -2016,7 +2068,7 @@ QUIZZES = {
         },
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/Джессика.mp3",
             "correct": ["Джессика Джонс","Джессика"],
             "time": 25,
@@ -2024,7 +2076,7 @@ QUIZZES = {
         },
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/Домино.mp3",
             "correct": ["Домино"],
             "time": 25,
@@ -2032,7 +2084,7 @@ QUIZZES = {
         },
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/Икарис.mp3",
             "correct": ["Икарис"],
             "time": 25,
@@ -2040,7 +2092,7 @@ QUIZZES = {
         },
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/Кабель.mp3",
             "correct": ["Кабель"],
             "time": 25,
@@ -2048,7 +2100,7 @@ QUIZZES = {
         },
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/Корг.mp3",
             "correct": ["Корг"],
             "time": 25,
@@ -2057,7 +2109,7 @@ QUIZZES = {
 
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/Меджик.mp3",
             "correct": ["Меджик"],
             "time": 25,
@@ -2065,7 +2117,7 @@ QUIZZES = {
         },
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи полное имя персонажа)",
+            "question": "Кто это по звуку? (введи полное имя персонажа)",
             "audio": "/static/audios/Факел.mp3",
             "correct": ["Человек факел", "Факел"],
             "time": 25,
@@ -2073,7 +2125,7 @@ QUIZZES = {
         },
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/Фантастик.mp3",
             "correct": ["Мистер фантастик","Фантастик"],
             "time": 25,
@@ -2081,7 +2133,7 @@ QUIZZES = {
         },
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/Хавок.mp3",
             "correct": ["Хавок"],
             "time": 25,
@@ -2091,7 +2143,7 @@ QUIZZES = {
 
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/Кросбоунс.mp3",
             "correct": ["Череп и кости","КроссБоунс","КросБоунс"],
             "time": 25,
@@ -2099,7 +2151,7 @@ QUIZZES = {
         },
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/Печенька.mp3",
             "correct": ["Существо","Печенька"],
             "time": 25,
@@ -2107,7 +2159,7 @@ QUIZZES = {
         },
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/Сокол.mp3",
             "correct": ["Сокол"],
             "time": 25,
@@ -2115,7 +2167,7 @@ QUIZZES = {
         },
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/Стэлс.mp3",
             "correct": ["Стэлс","Стэлс","Стэлс паук","Паук стэлс","Стелс паук","паук стелс"],
             "time": 25,
@@ -2124,7 +2176,7 @@ QUIZZES = {
 
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/Урка.mp3",
             "correct": ["Уорлок","Урка"],
             "time": 25,
@@ -2132,7 +2184,7 @@ QUIZZES = {
         },
         {
             "type": "text",
-            "question": "1. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/БЖЧ.mp3",
             "correct": ["БЖЧ"],
             "time": 25,
@@ -2140,7 +2192,7 @@ QUIZZES = {
         },
         {
             "type": "text",
-            "question": "2. Кто это по звуку? (введи имя персонажа)",
+            "question": "Кто это по звуку? (введи имя персонажа)",
             "audio": "/static/audios/ЧВСО.mp3",
             "correct": ["Черная вдова", "Белая вдова","Черная вдова смертельно опасная","Черная вдова (Смертельно опасная)"],
             "time": 25,
@@ -2152,7 +2204,7 @@ QUIZZES = {
 
         {
         "type": "text",
-        "question": "1. Чей предмет изображен на картинке?",
+        "question": "Чей предмет изображен на картинке?",
         "image": "/static/images/масакр.png",
     "image_zoom": 16,
     "image_position": "50% 32.2%",
@@ -2167,7 +2219,7 @@ QUIZZES = {
 
         {
         "type": "text",
-        "question": "1. Чей предмет изображен на картинке?",
+        "question": "Чей предмет изображен на картинке?",
         "image": "/static/images/Гиля.jpg",
     "image_zoom": 6.1,
     "image_position": "27% 66%",
@@ -2183,7 +2235,7 @@ QUIZZES = {
 
         {
         "type": "text",
-        "question": "1. Чей предмет изображен на картинке?",
+        "question": "Чей предмет изображен на картинке?",
         "image": "/static/images/Спираль.jpg",
     "image_zoom": 4.7,
     "image_position": "20% 25%",
@@ -2198,7 +2250,7 @@ QUIZZES = {
 
         {
         "type": "text",
-        "question": "1. Чей предмет изображен на картинке?",
+        "question": "Чей предмет изображен на картинке?",
         "image": "/static/images/Окойе.jpg",
         "image_zoom": 7.6,
         "image_position": "34% 54%",
@@ -2213,7 +2265,7 @@ QUIZZES = {
 
         {
         "type": "text",
-        "question": "1. Кто изображен на картинке?",
+        "question": "Кто изображен на картинке?",
         "image": "/static/images/Шершень.jpg",
         "image_zoom": 4.9,
         "image_position": "50% 34%",
@@ -2232,7 +2284,7 @@ QUIZZES = {
 
         {
         "type": "text",
-        "question": "1. Чей предмет изображен на картинке?",
+        "question": "Чей предмет изображен на картинке?",
         "image": "/static/images/Изофина.PNG",
         "image_zoom": 4.6,
         "image_position": "12.4% 36%",
@@ -2247,7 +2299,7 @@ QUIZZES = {
 
         {
         "type": "text",
-        "question": "1. Кто изображен на картинке?",
+        "question": "Кто изображен на картинке?",
         "image": "/static/images/Симбиот.PNG",
         "image_zoom": 8.7,
         "image_position": "48% 6%",
@@ -2265,7 +2317,7 @@ QUIZZES = {
 
         {
         "type": "text",
-        "question": "1. Кто изображен на картинке?",
+        "question": "Кто изображен на картинке?",
         "image": "/static/images/Разрушитель.PNG",
         "image_zoom": 7.3,
         "image_position": "37% 57%",
@@ -2280,7 +2332,7 @@ QUIZZES = {
 
         {
         "type": "mcq",
-        "question": "1. Кто изображен на картинке?",
+        "question": "Кто изображен на картинке?",
         "image": "/static/images/Мордо.PNG",
         "image_zoom": 5.3,
         "image_position": "48% 54%",
@@ -2296,7 +2348,7 @@ QUIZZES = {
 
         {
         "type": "mcq",
-        "question": "1. Кто изображен на картинке?",
+        "question": "Кто изображен на картинке?",
         "image": "/static/images/паук2.PNG",
         "image_zoom": 8.7,
         "image_position": "54% 38%",
@@ -2312,7 +2364,7 @@ QUIZZES = {
 
         {
         "type": "text",
-        "question": "1. Кто изображен на картинке?",
+        "question": "Кто изображен на картинке?",
         "image": "/static/images/Утка веном.PNG",
         "image_zoom": 4.9,
         "image_position": "70% 74%",
@@ -2327,7 +2379,7 @@ QUIZZES = {
 
         {
         "type": "text",
-        "question": "1. Кто изображен на картинке?",
+        "question": "Кто изображен на картинке?",
         "image": "/static/images/эйгон.PNG",
         "image_zoom": 8.3,
         "image_position": "42% 49.5%",
@@ -2343,7 +2395,7 @@ QUIZZES = {
         
         {
         "type": "text",
-        "question": "1. Кто изображен на картинке?",
+        "question": "Кто изображен на картинке?",
         "image": "/static/images/лидер.PNG",
         "image_zoom": 8.1,
         "image_position": "49% 93%",
@@ -2358,7 +2410,7 @@ QUIZZES = {
 
         {
         "type": "text",
-        "question": "2. Кто изображен на картинке?",
+        "question": "Кто изображен на картинке?",
         "image": "/static/images/сокол.PNG",
         "image_zoom": 6.3,
         "image_position": "45% 42%",
@@ -2373,7 +2425,7 @@ QUIZZES = {
 
         {
         "type": "text",
-        "question": "3. Кто изображен на картинке?",
+        "question": "Кто изображен на картинке?",
         "image": "/static/images/модок.PNG",
         "image_zoom": 9.7,
         "image_position": "48% 35%",
@@ -2388,7 +2440,7 @@ QUIZZES = {
 
         {
         "type": "text",
-        "question": "4. Чья культяпка изображена на картинке?",
+        "question": "Чья культяпка изображена на картинке?",
         "image": "/static/images/крот.PNG",
         "image_zoom": 8,
         "image_position": "39% 71%",
@@ -2402,7 +2454,7 @@ QUIZZES = {
         },
         {
         "type": "mcq",
-        "question": "5. Кто изображенный на картинке не пропускает день спины?",
+        "question": "Кто изображенный на картинке не пропускает день спины?",
         "image": "/static/images/Фантастик.png",
         "image_zoom": 5.5,
         "image_position": "43% 34%",
@@ -2418,7 +2470,7 @@ QUIZZES = {
         
         {
         "type": "text",
-        "question": "6. Кто изображён на картинке? (Напиши полное название!)",
+        "question": "Кто изображён на картинке? (Напиши полное название!)",
         "image": "/static/images/ПАУК.PNG",
         "image_zoom": 8.9,
         "image_position": "46% 50%",
@@ -2432,7 +2484,7 @@ QUIZZES = {
         },
         {
         "type": "text",
-        "question": "7. Кто изображён на картинке? (Напиши полное название!)",
+        "question": "Кто изображён на картинке? (Напиши полное название!)",
         "image": "/static/images/Кейт.PNG",
         "image_zoom": 10.5,
         "image_position": "37% 32%",
@@ -2447,7 +2499,7 @@ QUIZZES = {
 
         {
         "type": "text",
-        "question": "8. Кто изображён на картинке? (Напиши полное название!)",
+        "question": "Кто изображён на картинке? (Напиши полное название!)",
         "image": "/static/images/Америкос.png",
         "image_zoom": 9.1,
         "image_position": "60% 42%",
@@ -2462,7 +2514,7 @@ QUIZZES = {
 
         {
         "type": "mcq",
-        "question": "9. Кто изображен на картинке?",
+        "question": "Кто изображен на картинке?",
         "image": "/static/images/Боеголовка.png",
         "image_zoom": 12,
         "image_position": "45.5% 48%",
@@ -2477,7 +2529,7 @@ QUIZZES = {
         },
         {
         "type": "mcq",
-        "question": "10. Кто изображен на картинке?",
+        "question": "Кто изображен на картинке?",
         "image": "/static/images/апок2.png",
         "image_zoom": 4.9,
         "image_position": "46% 42%",
@@ -2485,13 +2537,14 @@ QUIZZES = {
             "x": 10,
             "y": -300
         },
-        "correct": ["Апокалипсис", "Апок"],
+        "answers": ["Апокалипсис", "Танос", "Кэйбл", "Зверь"],
+        "correct": 0,
         "time": 30,      
         "points": 1500
         },
         {
         "type": "mcq",
-        "question": "11. Чья прическа изображена на картинке?",
+        "question": "Чья прическа изображена на картинке?",
         "image": "/static/images/Змей Ночной.png",
         "image_zoom": 8.5,
         "image_position": "48% 11.5%",
@@ -2506,7 +2559,7 @@ QUIZZES = {
         },
         {
             "type": "mcq",
-            "question": "12. Кто изображён на фрагменте?",
+            "question": "Кто изображён на фрагменте?",
             "image": "/static/images/satra.png",
             "image_zoom": 6.6,
             "image_position": "44% 37%",
@@ -2521,7 +2574,7 @@ QUIZZES = {
         },
         {
         "type": "mcq",
-        "question": "13. Чей элемент изображен на картинке?",
+        "question": "Чей элемент изображен на картинке?",
         "image": "/static/images/МБАКУ.png",
         "image_zoom": 4.9,
         "image_position": "80% 26%",
@@ -2538,7 +2591,7 @@ QUIZZES = {
     
     {
         "type": "mcq",
-        "question": "14. Кто изображен на картинке?",
+        "question": "Кто изображен на картинке?",
         "image": "/static/images/Росомаха.png",
         "image_zoom": 8.8,
         "image_position": "52% 34%",
@@ -2739,7 +2792,7 @@ QUIZZES = {
   "type": "text",
   "question": "Угадай персонажа по описанию:",
   "prompt": "Я, конечно, не Кэрол Дэнверс, но мои кулаки ей точно не уступают: могу вмазать так же мощно. А после каждой победы у меня традиция — сделать селфи.",
-  "correct": ["Мисс Марвел", "Мисс Марвелл", "Камала Хан" "миссис марвел"],
+  "correct": ["Мисс Марвел", "Мисс Марвелл", "Камала Хан", "миссис марвел"],
   "time": 35,
   "points": 1500
 },
@@ -3618,6 +3671,7 @@ async def _create_room_impl(quiz: str):
         "current_question_metrics": {},
         "player_flags": {},
         "late_joiners": {},
+        "reveal_seq": 0,
         "current_payload": None,
         "current_view": "waiting",
     }
@@ -4681,6 +4735,8 @@ async def send_question(room):
         room_data["crossword_difficulty_id"] = selected_crossword_difficulty
         crossword_payload = build_crossword_payload(question, include_answers=False, difficulty_id=selected_crossword_difficulty)
         crossword_difficulties = crossword_payload.get("difficulties", [])
+    resolved_image = resolve_static_image_path(question.get("image"))
+    resolved_audio = resolve_static_audio_path(question.get("audio"))
 
     await broadcast(room, {
         "type": "question",
@@ -4688,8 +4744,8 @@ async def send_question(room):
         "question": display_question_text,
         "prompt": question.get("prompt"),
         "answers": question.get("answers"),
-        "image": question.get("image"),
-        "audio": question.get("audio"),
+        "image": resolved_image,
+        "audio": resolved_audio,
         "image_zoom": question.get("image_zoom"),
         "image_position": question.get("image_position"),
         "image_offset": question.get("image_offset"),
@@ -4710,8 +4766,8 @@ async def send_question(room):
         "question": display_question_text,
         "prompt": question.get("prompt"),
         "answers": question.get("answers"),
-        "image": question.get("image"),
-        "audio": question.get("audio"),
+        "image": resolved_image,
+        "audio": resolved_audio,
         "image_zoom": question.get("image_zoom"),
         "image_position": question.get("image_position"),
         "image_offset": question.get("image_offset"),
@@ -4958,8 +5014,12 @@ async def send_reveal(room, question_index):
         "crossword_selected_difficulty": selected_crossword_difficulty if q_type == "crossword" else None,
     })
 
+    reveal_id = int(room_data.get("reveal_seq", 0) or 0) + 1
+    room_data["reveal_seq"] = reveal_id
+
     reveal_payload = {
         "type": "reveal",
+        "reveal_id": reveal_id,
         "question_type": q_type,
         "correct": correct,
         "correct_value": question.get("correct"),
@@ -4967,8 +5027,8 @@ async def send_reveal(room, question_index):
         "leaderboard": leaderboard,
         "question": display_question_text,
         "answers": question.get("answers"),
-        "image": question.get("image"),
-        "audio": question.get("audio"),
+        "image": resolve_static_image_path(question.get("image")),
+        "audio": resolve_static_audio_path(question.get("audio")),
         "image_zoom": question.get("image_zoom"),
         "image_position": question.get("image_position"),
         "image_offset": question.get("image_offset"),

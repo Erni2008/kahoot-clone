@@ -2859,6 +2859,27 @@ function getHostQuestionIntroCopy(type){
     };
 }
 
+function buildHostQuestionImageHtml(imageSrc, zoom, position, offset){
+    if(!imageSrc) return "";
+    const safeImageUrl = encodeURI(String(imageSrc)).replace(/'/g, "%27").replace(/"/g, "%22");
+    const safePosition = typeof position === "string" && position.trim() ? position.trim() : "50% 50%";
+    const [rawPosX = "50%", rawPosY = "50%"] = safePosition.split(/\s+/, 2);
+    const offsetX = offset && typeof offset.x !== "undefined" ? Number(offset.x) || 0 : 0;
+    const offsetY = offset && typeof offset.y !== "undefined" ? Number(offset.y) || 0 : 0;
+    const finalPosX = `calc(${rawPosX} + ${offsetX}px)`;
+    const finalPosY = `calc(${rawPosY} + ${offsetY}px)`;
+    const safeZoom = Number(zoom) > 0 ? Number(zoom) : 3;
+    return `
+        <div class="image-mask"
+             style="
+                 background-image:url('${safeImageUrl}');
+                 background-size:${safeZoom * 100}%;
+                 background-position:${finalPosX} ${finalPosY};
+             ">
+        </div>
+    `;
+}
+
 function renderHostQuestionIntro(delaySeconds, type){
     const copy = getHostQuestionIntroCopy(type);
     const introBackground = type === "crossword" && window.__hostCrossword
@@ -2901,16 +2922,16 @@ function renderHostCrosswordQuestion(crossword, values, readonly){
         html += `
             <div class="crossword-header">
                 <div class="crossword-active-card">
-                    <div class="crossword-active-title">Активный вопрос: ${activeWord.number}. ${activeWord.clue}</div>
+                    <div class="crossword-active-title">Активный вопрос: ${activeWord.number}. ${escapeHtml(activeWord.clue)}</div>
                     <div class="crossword-active-meta">${activeWord.direction === "down" ? "Вниз" : "По горизонтали"} • ${activeWord.length} букв</div>
-                    <input ${readonly ? "disabled" : ""} class="crossword-input" id="hostCrosswordActiveInput" maxlength="${activeWord.length}" type="text" value="${activeValue.replace(/"/g, "&quot;")}" oninput="hostUpdateCrosswordWord('${activeWord.id}', this.value)" placeholder="Введите слово">
+                    <input ${readonly ? "disabled" : ""} class="crossword-input" id="hostCrosswordActiveInput" maxlength="${activeWord.length}" type="text" value="${escapeHtml(activeValue)}" oninput="hostUpdateCrosswordWord('${activeWord.id}', this.value)" placeholder="Введите слово">
                 </div>
                 <div class="crossword-help-card">
                     <div class="crossword-help-title">Как вести вопрос</div>
                     <div class="crossword-help-text">Выбирайте подсказку из списка или нажимайте по клеткам, чтобы быстро переключаться между словами и видеть заполнение сетки.</div>
                     ${Array.isArray(hostCrosswordDifficulties) && hostCrosswordDifficulties.length ? `
                         <div class="crossword-difficulties">
-                            ${hostCrosswordDifficulties.map((item)=>`<div class="crossword-difficulty-chip${item.id === hostCrosswordSelectedDifficulty ? " active" : ""}">${item.label}</div>`).join("")}
+                            ${hostCrosswordDifficulties.map((item)=>`<div class="crossword-difficulty-chip${item.id === hostCrosswordSelectedDifficulty ? " active" : ""}">${escapeHtml(item.label)}</div>`).join("")}
                         </div>
                     ` : ""}
                 </div>
@@ -2925,9 +2946,9 @@ function renderHostCrosswordQuestion(crossword, values, readonly){
             const solved = readonly && word.answer && normalizeHostCrosswordWord(currentValue) === normalizeHostCrosswordWord(word.answer);
             groupHtml += `
                 <button type="button" class="crossword-clue${word.id === activeId ? " active" : ""}${currentValue ? " filled" : ""}${solved ? " solved" : ""}" onclick="selectHostCrosswordWord('${word.id}')">
-                    <div class="crossword-clue-title"><span class="crossword-clue-number">${word.number}</span>${word.clue}</div>
+                    <div class="crossword-clue-title"><span class="crossword-clue-number">${word.number}</span>${escapeHtml(word.clue)}</div>
                     <div class="crossword-clue-meta">${word.length} букв</div>
-                    <div class="crossword-clue-value">${currentValue || "Пока пусто"}</div>
+                    <div class="crossword-clue-value">${currentValue ? escapeHtml(currentValue) : "Пока пусто"}</div>
                 </button>
             `;
         });
@@ -3567,7 +3588,7 @@ function showAppealRequestToast(payload){
     el.innerHTML = `
         <span class="badge">⚠️ Апелляция</span>
         <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
-            <div class="msg">${username} подал апелляцию</div>
+            <div class="msg">${escapeHtml(username)} подал апелляцию</div>
             <div class="sub">Ответ: ${escapeHtml(safeAnswer)} • Причина: ${escapeHtml(safeReason)}</div>
         </div>
         <button class="cta" type="button">Открыть</button>
@@ -4516,33 +4537,15 @@ async function createRoom(){
             }
             window.__currentQuestionPoints = Math.trunc(window.__currentQuestionPoints);
 
-            let questionHTML = `<div class="question-card fade-in">${data.question}</div>`;
+            let questionHTML = `<div class="question-card fade-in">${escapeHtml(data.question)}</div>`;
             if(data.prompt){
-                questionHTML += `<div class="audio-note" style="margin-top:14px;font-size:22px;line-height:1.6;">${data.prompt}</div>`;
+                questionHTML += `<div class="audio-note" style="margin-top:14px;font-size:22px;line-height:1.6;">${escapeHtml(data.prompt)}</div>`;
             }
             if(type === "wordle"){
                 questionHTML += `<div class="audio-note" style="font-size:18px;line-height:1.65;">⚠️ Важно: после каждой попытки цвет букв подскажет результат. Зелёный — буква на своём месте. Жёлтый — буква есть в слове, но стоит не там. Красный — такой буквы в слове нет. Ваша задача — собрать слово целиком за доступные попытки. Для удобства внизу есть клавиатура.</div>`;
             }
             if(hasImage){
-                const zoom = data.image_zoom || 3;
-                const position = data.image_position || "50% 50%";
-                const offsetX = data.image_offset && typeof data.image_offset.x !== "undefined" ? data.image_offset.x : 0;
-                const offsetY = data.image_offset && typeof data.image_offset.y !== "undefined" ? data.image_offset.y : 0;
-
-                const [posX, posY] = position.split(" ");
-
-                const finalPosX = `calc(${posX} + ${offsetX}px)`;
-                const finalPosY = `calc(${posY} + ${offsetY}px)`;
-
-                questionHTML += `
-                    <div class="image-mask"
-                         style="
-                             background-image:url('${data.image}');
-                             background-size:${zoom * 100}%;
-                             background-position:${finalPosX} ${finalPosY};
-                         ">
-                    </div>
-                `;
+                questionHTML += buildHostQuestionImageHtml(data.image, data.image_zoom, data.image_position, data.image_offset);
             }
             questionHTML += `<div id="hostAnswersContainer"></div>`;
             if(revealEl) revealEl.innerHTML = questionHTML;
@@ -4560,7 +4563,8 @@ async function createRoom(){
                 grid.className = "answers-grid";
                 const colors = ["answer-red","answer-blue","answer-yellow","answer-green"];
 
-                data.answers.forEach((ans,index)=>{
+                const safeAnswers = Array.isArray(data.answers) ? data.answers : [];
+                safeAnswers.forEach((ans,index)=>{
                     const card = document.createElement("div");
                     card.className = `answer-card ${colors[index]}`;
                     card.innerText = ans;
