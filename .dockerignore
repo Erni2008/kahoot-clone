@@ -1,0 +1,12 @@
+.git
+.DS_Store
+.env
+venv
+.venv
+frontend/node_modules
+__pycache__
+.pytest_cache
+test-results
+data/editor_token.txt
+data/access.sqlite3*
+data/quizzes.backup.json

@@ -243,6 +243,7 @@ let riskFilterMode = "all";
 let adminHeartbeatTimer = null;
 let adminLastPongAt = Date.now();
 let adminManualReconnect = false;
+let adminToken = "";
 const ADMIN_HEARTBEAT_MS = 15000;
 const ADMIN_PONG_TIMEOUT_MS = 45000;
 
@@ -272,6 +273,21 @@ function wsBase(){
 }
 
 function byId(id){ return document.getElementById(id); }
+
+function loadAdminToken(){
+    const hashToken = location.hash.length > 1 ? decodeURIComponent(location.hash.slice(1)) : "";
+    try{ adminToken = hashToken || sessionStorage.getItem("quiz_admin_token") || ""; }catch(e){ adminToken = hashToken; }
+    if(!adminToken){
+        adminToken = prompt("Введите ключ администратора:") || "";
+    }
+    if(adminToken){
+        try{ sessionStorage.setItem("quiz_admin_token", adminToken); }catch(e){}
+    }
+}
+
+function adminHeaders(extra={}){
+    return {...extra, Authorization:`Bearer ${adminToken}`};
+}
 
 function saveAdminState(){
     try{
@@ -373,7 +389,8 @@ function send(payload){
 
 async function fetchAdminSnapshot(){
     try{
-        const response = await fetch("/admin-snapshot", { cache: "no-store" });
+        const response = await fetch("/admin-snapshot", { cache: "no-store", headers: adminHeaders() });
+        if(!response.ok) throw new Error(response.status === 401 ? "Неверный ключ администратора" : `HTTP ${response.status}`);
         const data = await response.json();
         applyInit(data);
         setStatus("connected (http)", true);
@@ -389,7 +406,7 @@ async function postAdminAction(payload){
     try{
         const response = await fetch("/admin-action", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: adminHeaders({ "Content-Type": "application/json" }),
             body: JSON.stringify(payload),
             cache: "no-store"
         });
@@ -978,6 +995,7 @@ function sendCustomMessage(){
     send({type:"admin_action", room, action:"send_message", username, message});
 }
 
+loadAdminToken();
 restoreAdminState();
 connectAdmin();
 selectReviewTab(selectedReviewTab);

@@ -1,0 +1,14 @@
+services:
+  quiz:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      QUIZ_EDITOR_TOKEN: "${QUIZ_EDITOR_TOKEN:-}"
+      QUIZ_API_DOCS: "${QUIZ_API_DOCS:-0}"
+    volumes:
+      - quiz_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  quiz_data:

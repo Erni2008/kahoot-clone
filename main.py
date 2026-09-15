@@ -1,19 +1,39 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.middleware.gzip import GZipMiddleware
 import random
 import string
 import time
 import asyncio
+import copy
 import json
 import os
+import secrets
+import shutil
+import threading
 import unicodedata
+from pathlib import Path
 from typing import Dict
 from difflib import SequenceMatcher
 from collections import deque
 
+from quiz_app.access import AccessStore, Principal, role_allows
+from quiz_app.http import authenticate_request, production_headers
+
 import re
 import html
+
+try:
+    from dotenv import load_dotenv
+except ImportError:  # The app still starts; setup.command installs python-dotenv.
+    load_dotenv = None
+
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
+DATA_DIR = BASE_DIR / "data"
+if load_dotenv is not None:
+    load_dotenv(BASE_DIR / ".env")
 
 # =====================
 # Answer normalization & aliases (ANTI-DISPUTE)
@@ -49,8 +69,8 @@ WS_SEND_TIMEOUT = 2.0
 ADMIN_LOG_LIMIT = 2000
 WARNING_PENALTY_POINTS = 500
 WORDLE_HINT_COST = 350
-STATIC_IMAGES_DIR = os.path.join(os.path.dirname(__file__), "static", "images")
-STATIC_AUDIOS_DIR = os.path.join(os.path.dirname(__file__), "static", "audios")
+STATIC_IMAGES_DIR = str(STATIC_DIR / "images")
+STATIC_AUDIOS_DIR = str(STATIC_DIR / "audios")
 
 
 def _normalize_asset_name(name: str) -> str:
@@ -496,10 +516,14 @@ def build_crossword_payload(question: dict, include_answers: bool = False, diffi
     }
 
 
-app = FastAPI()
-
-from fastapi import Request
-from fastapi.responses import Response
+app = FastAPI(
+    title="Kahoot Interactive Test API",
+    version="2.0.0",
+    docs_url="/api/docs" if os.getenv("QUIZ_API_DOCS", "0") == "1" else None,
+    redoc_url=None,
+)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+app.middleware("http")(production_headers)
 
 @app.middleware("http")
 async def add_ngrok_header(request: Request, call_next):
@@ -509,7 +533,7 @@ async def add_ngrok_header(request: Request, call_next):
 
 
 def html_no_cache_response(path: str) -> FileResponse:
-    response = FileResponse(path)
+    response = FileResponse(BASE_DIR / path)
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
@@ -530,7 +554,8 @@ TEAM_PRESETS = [
 
 
 def build_room_quiz(quiz_name: str):
-    quiz = list(QUIZZES.get(quiz_name, []))
+    # A running room must not change if an editor saves the source quiz.
+    quiz = copy.deepcopy(QUIZZES.get(quiz_name, []))
     if len(quiz) <= 1:
         return quiz
 
@@ -3185,6 +3210,229 @@ QUIZZES = {
 # poll       - no correct answer (voting)
 # fastest    - first correct wins bonus
 
+SUPPORTED_QUESTION_TYPES = {"mcq", "numeric", "text", "wordle", "crossword", "poll", "fastest"}
+QUIZ_DATA_FILE = Path(os.getenv("QUIZ_DATA_FILE", str(DATA_DIR / "quizzes.json"))).expanduser()
+if not QUIZ_DATA_FILE.is_absolute():
+    QUIZ_DATA_FILE = BASE_DIR / QUIZ_DATA_FILE
+EDITOR_TOKEN_FILE = DATA_DIR / "editor_token.txt"
+ACCESS_DB_FILE = Path(os.getenv("QUIZ_ACCESS_DB", str(DATA_DIR / "access.sqlite3"))).expanduser()
+if not ACCESS_DB_FILE.is_absolute():
+    ACCESS_DB_FILE = BASE_DIR / ACCESS_DB_FILE
+QUIZ_STORE_LOCK = threading.RLock()
+QUIZ_REVISION = 1
+
+
+def _atomic_write_json(path: Path, value) -> None:
+    """Write JSON without leaving a half-written quiz file after a crash."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    with temporary.open("w", encoding="utf-8") as handle:
+        json.dump(value, handle, ensure_ascii=False, indent=2)
+        handle.write("\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.replace(temporary, path)
+
+
+def _load_or_create_editor_token() -> str:
+    configured = str(os.getenv("QUIZ_EDITOR_TOKEN", "")).strip()
+    if configured:
+        return configured
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    if EDITOR_TOKEN_FILE.exists():
+        saved = EDITOR_TOKEN_FILE.read_text(encoding="utf-8").strip()
+        if saved:
+            return saved
+    generated = secrets.token_urlsafe(24)
+    EDITOR_TOKEN_FILE.write_text(generated + "\n", encoding="utf-8")
+    try:
+        EDITOR_TOKEN_FILE.chmod(0o600)
+    except OSError:
+        pass
+    return generated
+
+
+EDITOR_TOKEN = _load_or_create_editor_token()
+ACCESS_STORE = AccessStore(ACCESS_DB_FILE)
+
+
+def _clean_quiz_name(value) -> str:
+    name = str(value or "").strip()
+    if not name:
+        raise ValueError("Название теста не может быть пустым")
+    if len(name) > 120:
+        raise ValueError("Название теста слишком длинное (максимум 120 символов)")
+    return name
+
+
+def _positive_int(value, field: str, minimum: int, maximum: int) -> int:
+    try:
+        result = int(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"Поле «{field}» должно быть целым числом") from None
+    if not minimum <= result <= maximum:
+        raise ValueError(f"Поле «{field}» должно быть от {minimum} до {maximum}")
+    return result
+
+
+def validate_question(value, index: int | None = None) -> dict:
+    prefix = f"Вопрос {index + 1}: " if index is not None else ""
+    if not isinstance(value, dict):
+        raise ValueError(prefix + "ожидался JSON-объект")
+    question = copy.deepcopy(value)
+    question_type = str(question.get("type") or "mcq").strip().lower()
+    if question_type not in SUPPORTED_QUESTION_TYPES:
+        raise ValueError(prefix + f"неподдерживаемый тип «{question_type}»")
+    question_text = str(question.get("question") or "").strip()
+    if not question_text:
+        raise ValueError(prefix + "текст вопроса пуст")
+    if len(question_text) > 1000:
+        raise ValueError(prefix + "текст вопроса длиннее 1000 символов")
+
+    question["type"] = question_type
+    question["question"] = question_text
+    question["time"] = _positive_int(question.get("time", 30), "Время", 5, 3600)
+    question["points"] = _positive_int(question.get("points", 1000), "Баллы", 0, 100000)
+
+    if "prompt" in question:
+        question["prompt"] = str(question.get("prompt") or "").strip()
+
+    if question_type in {"mcq", "fastest", "poll"}:
+        raw_answers = question.get("answers")
+        if not isinstance(raw_answers, list):
+            raise ValueError(prefix + "варианты ответа должны быть списком")
+        answers = [str(answer).strip() for answer in raw_answers]
+        if not 2 <= len(answers) <= 12 or any(not answer for answer in answers):
+            raise ValueError(prefix + "нужно от 2 до 12 непустых вариантов ответа")
+        question["answers"] = answers
+        if question_type == "poll":
+            question.pop("correct", None)
+        else:
+            correct = question.get("correct")
+            indexes = correct if isinstance(correct, list) else [correct]
+            try:
+                indexes = [int(item) for item in indexes]
+            except (TypeError, ValueError):
+                raise ValueError(prefix + "правильный ответ должен быть номером варианта") from None
+            indexes = list(dict.fromkeys(indexes))
+            if not indexes or any(item < 0 or item >= len(answers) for item in indexes):
+                raise ValueError(prefix + "номер правильного ответа выходит за список вариантов")
+            question["correct"] = indexes[0] if len(indexes) == 1 else indexes
+
+    elif question_type in {"text", "numeric", "wordle"}:
+        correct = question.get("correct")
+        values = correct if isinstance(correct, list) else [correct]
+        if not values or any(str(item).strip() == "" for item in values):
+            raise ValueError(prefix + "правильный ответ не заполнен")
+        if question_type == "wordle":
+            if len(values) != 1:
+                raise ValueError(prefix + "для Wordle нужен один правильный ответ")
+            question["correct"] = str(values[0]).strip()
+            question["max_attempts"] = _positive_int(question.get("max_attempts", 6), "Количество попыток", 1, 20)
+        elif question_type == "text":
+            cleaned = [str(item).strip() for item in values]
+            question["correct"] = cleaned[0] if len(cleaned) == 1 else cleaned
+        else:
+            cleaned = []
+            for item in values:
+                if isinstance(item, (int, float)) and not isinstance(item, bool):
+                    cleaned.append(item)
+                    continue
+                text_value = str(item).strip()
+                try:
+                    number = float(text_value.replace(",", "."))
+                    cleaned.append(int(number) if number.is_integer() else number)
+                except ValueError:
+                    cleaned.append(text_value)
+            question["correct"] = cleaned[0] if len(cleaned) == 1 else cleaned
+
+    elif question_type == "crossword":
+        levels = question.get("difficulty_levels")
+        if not isinstance(levels, list) or not levels:
+            raise ValueError(prefix + "для кроссворда нужен список difficulty_levels")
+        for level in levels:
+            if not isinstance(level, dict) or not str(level.get("id") or "").strip():
+                raise ValueError(prefix + "у каждого уровня кроссворда нужен id")
+            words = level.get("words")
+            if not isinstance(words, list) or not words:
+                raise ValueError(prefix + "в каждом уровне кроссворда нужны слова")
+            for word in words:
+                if not isinstance(word, dict) or not str(word.get("clue") or "").strip() or not str(word.get("answer") or "").strip():
+                    raise ValueError(prefix + "у каждого слова кроссворда нужны clue и answer")
+    return question
+
+
+def validate_quiz_collection(value) -> dict[str, list[dict]]:
+    if not isinstance(value, dict):
+        raise ValueError("Файл тестов должен содержать JSON-объект")
+    cleaned: dict[str, list[dict]] = {}
+    for raw_name, raw_questions in value.items():
+        name = _clean_quiz_name(raw_name)
+        if name in cleaned:
+            raise ValueError(f"Повторяющееся название теста: {name}")
+        if not isinstance(raw_questions, list):
+            raise ValueError(f"Тест «{name}» должен содержать список вопросов")
+        cleaned[name] = [validate_question(question, index) for index, question in enumerate(raw_questions)]
+    return cleaned
+
+
+def save_quizzes() -> None:
+    with QUIZ_STORE_LOCK:
+        if QUIZ_DATA_FILE.exists():
+            backup_path = QUIZ_DATA_FILE.with_name("quizzes.backup.json")
+            try:
+                shutil.copy2(QUIZ_DATA_FILE, backup_path)
+            except OSError:
+                pass
+        _atomic_write_json(QUIZ_DATA_FILE, QUIZZES)
+
+
+def initialize_quiz_store() -> None:
+    global QUIZ_REVISION
+    if not QUIZ_DATA_FILE.exists():
+        save_quizzes()
+        return
+    try:
+        loaded = json.loads(QUIZ_DATA_FILE.read_text(encoding="utf-8"))
+        cleaned = validate_quiz_collection(loaded)
+    except Exception as exc:
+        raise RuntimeError(f"Не удалось загрузить тесты из {QUIZ_DATA_FILE}: {exc}") from exc
+    with QUIZ_STORE_LOCK:
+        QUIZZES.clear()
+        QUIZZES.update(cleaned)
+        QUIZ_REVISION += 1
+
+
+def require_editor(request: Request, required_role: str = "viewer") -> Principal:
+    return authenticate_request(
+        request,
+        owner_token=EDITOR_TOKEN,
+        access_store=ACCESS_STORE,
+        required_role=required_role,
+    )
+
+
+def _check_revision(payload: dict) -> None:
+    expected = payload.get("revision")
+    if expected is None:
+        return
+    try:
+        expected_revision = int(expected)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=422, detail="Неверная версия данных") from None
+    if expected_revision != QUIZ_REVISION:
+        raise HTTPException(status_code=409, detail="Тест уже изменён в другом окне. Обновите список и повторите действие.")
+
+
+def _commit_quiz_change() -> int:
+    global QUIZ_REVISION
+    save_quizzes()
+    QUIZ_REVISION += 1
+    return QUIZ_REVISION
+
+
+initialize_quiz_store()
+
 def generate_pin():
     while True:
         pin = "".join(random.choices(string.digits, k=6))
@@ -3269,6 +3517,25 @@ async def close_room_and_notify(room: str, message: str = "Тест заверш
 async def root():
     return html_no_cache_response("static/host.html")
 
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return Response(status_code=204)
+
+
+@app.get("/health/live", include_in_schema=False)
+async def health_live():
+    return {"status": "ok"}
+
+
+@app.get("/health/ready", include_in_schema=False)
+async def health_ready():
+    return {
+        "status": "ready",
+        "quizzes": len(QUIZZES),
+        "revision": QUIZ_REVISION,
+    }
+
 @app.get("/host.html")
 async def host_page():
     return html_no_cache_response("static/host.html")
@@ -3286,13 +3553,266 @@ async def admin_page():
     return html_no_cache_response("static/admin.html")
 
 
+@app.get("/editor.html")
+async def editor_page():
+    studio_entry = STATIC_DIR / "studio" / "index.html"
+    if studio_entry.exists():
+        response = FileResponse(studio_entry)
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        return response
+    return html_no_cache_response("static/editor.html")
+
+
+@app.get("/api/quizzes")
+async def public_quiz_list():
+    """Public metadata used by the host screen; answers are never exposed here."""
+    with QUIZ_STORE_LOCK:
+        return {
+            "revision": QUIZ_REVISION,
+            "quizzes": [
+                {
+                    "name": name,
+                    "question_count": len(questions),
+                    "question_types": sorted({str(item.get("type") or "mcq") for item in questions}),
+                }
+                for name, questions in QUIZZES.items()
+            ],
+        }
+
+
+async def _editor_json_payload(request: Request) -> dict:
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Тело запроса должно быть корректным JSON") from None
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Ожидался JSON-объект")
+    return payload
+
+
+def _quiz_or_404(name: str) -> list[dict]:
+    if name not in QUIZZES:
+        raise HTTPException(status_code=404, detail="Тест не найден")
+    return QUIZZES[name]
+
+
+@app.get("/api/editor/state")
+async def editor_state(request: Request):
+    principal = require_editor(request)
+    with QUIZ_STORE_LOCK:
+        return {
+            "revision": QUIZ_REVISION,
+            "principal": principal.public_dict(),
+            "quizzes": [
+                {"name": name, "question_count": len(questions)}
+                for name, questions in QUIZZES.items()
+            ],
+        }
+
+
+@app.get("/api/editor/quiz")
+async def editor_get_quiz(request: Request, name: str):
+    require_editor(request)
+    with QUIZ_STORE_LOCK:
+        questions = _quiz_or_404(name)
+        return {
+            "revision": QUIZ_REVISION,
+            "name": name,
+            "questions": copy.deepcopy(questions),
+        }
+
+
+@app.post("/api/editor/quiz")
+async def editor_create_quiz(request: Request):
+    principal = require_editor(request, "editor")
+    payload = await _editor_json_payload(request)
+    try:
+        name = _clean_quiz_name(payload.get("name"))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    with QUIZ_STORE_LOCK:
+        _check_revision(payload)
+        if name in QUIZZES:
+            raise HTTPException(status_code=409, detail="Тест с таким названием уже существует")
+        QUIZZES[name] = []
+        revision = _commit_quiz_change()
+    ACCESS_STORE.audit(principal, "quiz.create", name)
+    return {"ok": True, "revision": revision, "name": name, "questions": []}
+
+
+@app.patch("/api/editor/quiz")
+async def editor_rename_quiz(request: Request):
+    principal = require_editor(request, "editor")
+    payload = await _editor_json_payload(request)
+    current_name = str(payload.get("current_name") or "").strip()
+    try:
+        new_name = _clean_quiz_name(payload.get("name"))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    with QUIZ_STORE_LOCK:
+        _check_revision(payload)
+        questions = _quiz_or_404(current_name)
+        if new_name != current_name and new_name in QUIZZES:
+            raise HTTPException(status_code=409, detail="Тест с таким названием уже существует")
+        if new_name != current_name:
+            items = []
+            for name, existing_questions in QUIZZES.items():
+                items.append((new_name if name == current_name else name, existing_questions))
+            QUIZZES.clear()
+            QUIZZES.update(items)
+        revision = _commit_quiz_change()
+    ACCESS_STORE.audit(principal, "quiz.rename", new_name, f"Было: {current_name}")
+    return {"ok": True, "revision": revision, "name": new_name, "question_count": len(questions)}
+
+
+@app.delete("/api/editor/quiz")
+async def editor_delete_quiz(request: Request, name: str, revision: int | None = None):
+    principal = require_editor(request, "editor")
+    with QUIZ_STORE_LOCK:
+        _check_revision({"revision": revision})
+        _quiz_or_404(name)
+        if len(QUIZZES) <= 1:
+            raise HTTPException(status_code=422, detail="Нельзя удалить последний тест")
+        del QUIZZES[name]
+        new_revision = _commit_quiz_change()
+    ACCESS_STORE.audit(principal, "quiz.delete", name)
+    return {"ok": True, "revision": new_revision}
+
+
+@app.post("/api/editor/question")
+async def editor_add_question(request: Request):
+    principal = require_editor(request, "editor")
+    payload = await _editor_json_payload(request)
+    name = str(payload.get("quiz") or "").strip()
+    try:
+        question = validate_question(payload.get("question"))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    with QUIZ_STORE_LOCK:
+        _check_revision(payload)
+        questions = _quiz_or_404(name)
+        raw_index = payload.get("index")
+        try:
+            index = len(questions) if raw_index is None else max(0, min(int(raw_index), len(questions)))
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=422, detail="Неверный номер вопроса") from None
+        questions.insert(index, question)
+        revision = _commit_quiz_change()
+        result = copy.deepcopy(questions)
+    ACCESS_STORE.audit(principal, "question.create", name, f"Позиция: {index + 1}")
+    return {"ok": True, "revision": revision, "name": name, "questions": result, "index": index}
+
+
+@app.put("/api/editor/question")
+async def editor_update_question(request: Request):
+    principal = require_editor(request, "editor")
+    payload = await _editor_json_payload(request)
+    name = str(payload.get("quiz") or "").strip()
+    try:
+        index = int(payload.get("index"))
+        question = validate_question(payload.get("question"), index)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    with QUIZ_STORE_LOCK:
+        _check_revision(payload)
+        questions = _quiz_or_404(name)
+        if index < 0 or index >= len(questions):
+            raise HTTPException(status_code=404, detail="Вопрос не найден")
+        questions[index] = question
+        revision = _commit_quiz_change()
+        result = copy.deepcopy(questions)
+    ACCESS_STORE.audit(principal, "question.update", name, f"Позиция: {index + 1}")
+    return {"ok": True, "revision": revision, "name": name, "questions": result, "index": index}
+
+
+@app.delete("/api/editor/question")
+async def editor_delete_question(request: Request, quiz: str, index: int, revision: int | None = None):
+    principal = require_editor(request, "editor")
+    with QUIZ_STORE_LOCK:
+        _check_revision({"revision": revision})
+        questions = _quiz_or_404(quiz)
+        if index < 0 or index >= len(questions):
+            raise HTTPException(status_code=404, detail="Вопрос не найден")
+        questions.pop(index)
+        new_revision = _commit_quiz_change()
+        result = copy.deepcopy(questions)
+    ACCESS_STORE.audit(principal, "question.delete", quiz, f"Позиция: {index + 1}")
+    return {"ok": True, "revision": new_revision, "name": quiz, "questions": result}
+
+
+@app.post("/api/editor/question/move")
+async def editor_move_question(request: Request):
+    principal = require_editor(request, "editor")
+    payload = await _editor_json_payload(request)
+    name = str(payload.get("quiz") or "").strip()
+    try:
+        index = int(payload.get("index"))
+        target_index = int(payload.get("target_index"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=422, detail="Неверный номер вопроса") from None
+    with QUIZ_STORE_LOCK:
+        _check_revision(payload)
+        questions = _quiz_or_404(name)
+        if index < 0 or index >= len(questions) or target_index < 0 or target_index >= len(questions):
+            raise HTTPException(status_code=404, detail="Вопрос не найден")
+        question = questions.pop(index)
+        questions.insert(target_index, question)
+        revision = _commit_quiz_change()
+        result = copy.deepcopy(questions)
+    ACCESS_STORE.audit(principal, "question.move", name, f"{index + 1} → {target_index + 1}")
+    return {"ok": True, "revision": revision, "name": name, "questions": result, "index": target_index}
+
+
+@app.get("/api/editor/session")
+async def editor_session(request: Request):
+    return {"principal": require_editor(request).public_dict()}
+
+
+@app.get("/api/editor/collaborators")
+async def editor_collaborators(request: Request):
+    require_editor(request, "owner")
+    return {"collaborators": ACCESS_STORE.list()}
+
+
+@app.post("/api/editor/collaborators")
+async def editor_create_collaborator(request: Request):
+    owner = require_editor(request, "owner")
+    payload = await _editor_json_payload(request)
+    try:
+        principal, token = ACCESS_STORE.create(
+            str(payload.get("name") or ""),
+            str(payload.get("role") or "editor").strip().lower(),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    ACCESS_STORE.audit(owner, "collaborator.create", principal.name, principal.role)
+    return {"collaborator": principal.public_dict(), "token": token}
+
+
+@app.delete("/api/editor/collaborators/{collaborator_id}")
+async def editor_revoke_collaborator(request: Request, collaborator_id: str):
+    owner = require_editor(request, "owner")
+    if not ACCESS_STORE.revoke(collaborator_id):
+        raise HTTPException(status_code=404, detail="Доступ не найден или уже отозван")
+    ACCESS_STORE.audit(owner, "collaborator.revoke", collaborator_id)
+    return {"ok": True}
+
+
+@app.get("/api/editor/audit")
+async def editor_audit(request: Request, limit: int = 100):
+    require_editor(request, "owner")
+    return {"events": ACCESS_STORE.audit_log(limit)}
+
+
 @app.get("/admin-snapshot")
-async def admin_snapshot():
+async def admin_snapshot(request: Request):
+    require_editor(request)
     return build_server_snapshot()
 
 
 @app.post("/admin-action")
 async def admin_action_http(request: Request):
+    require_editor(request, "editor")
     try:
         data = await request.json()
     except Exception:
@@ -4161,7 +4681,9 @@ async def _websocket_endpoint_impl(websocket: WebSocket, role: str, room: str, u
             # ANSWER (player OR host)
             if msg_type == "answer" and (role == "player" or role == "host"):
 
-                answer_user = username if role == "player" else "HOST"
+                # Keep the host identity identical on both host and player sockets.
+                # This makes the host socket a safe fallback during reconnects.
+                answer_user = username if role == "player" else "Ведущий"
 
                 # ensure HOST exists in scores
                 if role == "host" and answer_user not in room_data["scores"]:
@@ -4608,6 +5130,17 @@ async def websocket_endpoint_query(websocket: WebSocket, role: str):
 
 @app.websocket("/ws/admin")
 async def admin_websocket(websocket: WebSocket):
+    provided = str(websocket.query_params.get("token") or "").strip()
+    principal = None
+    if provided and secrets.compare_digest(provided, EDITOR_TOKEN):
+        principal = Principal(id="owner", name="Владелец", role="owner", owner=True)
+    elif provided:
+        principal = ACCESS_STORE.authenticate(provided)
+    if principal is None or not role_allows(principal.role, "editor"):
+        await websocket.accept()
+        await websocket.send_json({"type": "error", "message": "Неверный ключ или недостаточно прав"})
+        await websocket.close(code=1008)
+        return
     await websocket.accept()
     client_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=10))
     admin_clients[client_id] = {
@@ -4618,7 +5151,7 @@ async def admin_websocket(websocket: WebSocket):
         "type": "admin_init",
         **build_server_snapshot(),
     })
-    log_event("admin_connected", client_id=client_id)
+    log_event("admin_connected", client_id=client_id, actor=principal.name)
 
     try:
         while True:
@@ -5566,4 +6099,4 @@ async def export_results(room: str, request: Request):
         }
     )
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")

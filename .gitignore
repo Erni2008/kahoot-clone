@@ -1,0 +1,14 @@
+.DS_Store
+.env
+.pytest_cache/
+__pycache__/
+*.py[cod]
+data/editor_token.txt
+data/access.sqlite3*
+data/quizzes.backup.json
+data/*.tmp
+venv/
+.venv/
+test-results/
+frontend/node_modules/
+frontend/*.tsbuildinfo
