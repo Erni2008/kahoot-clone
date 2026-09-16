@@ -2655,6 +2655,8 @@ body:has(#pinDisplay:not(:empty)) .stage-backdrop-start{opacity:0;animation:none
 body:has(#pinDisplay:not(:empty)) .stage-backdrop-room{opacity:1}
 .room-active .stage-backdrop-start{opacity:0!important;animation:none!important}
 .room-active .stage-backdrop-room{opacity:1!important}
+.room-active.stage-preview-mode .stage-backdrop-start{opacity:1!important;animation:startStageBreath 14s ease-in-out infinite alternate!important}
+.room-active.stage-preview-mode .stage-backdrop-room{opacity:0!important}
 @keyframes startStageBreath{0%{transform:scale(1.018);filter:saturate(1.04) contrast(1.02) brightness(.94)}50%{filter:saturate(1.14) contrast(1.04) brightness(1.04)}100%{transform:scale(1.035);filter:saturate(1.18) contrast(1.04) brightness(1.08)}}
 .stage-world::after{z-index:3;background:radial-gradient(ellipse 92% 118% at 50% 50%,transparent 54%,rgba(0,10,6,.08) 72%,rgba(0,6,4,.25) 100%),radial-gradient(ellipse 34% 90% at -8% 50%,rgba(0,8,5,.28),transparent 100%),radial-gradient(ellipse 34% 90% at 108% 50%,rgba(0,8,5,.28),transparent 100%)!important;mix-blend-mode:normal!important}
 .stage-haze{background:linear-gradient(104deg,transparent 12%,rgba(70,255,174,.05) 34%,transparent 51%,rgba(121,255,181,.04) 70%,transparent 88%)!important}
@@ -2669,6 +2671,20 @@ body:has(#pinDisplay:not(:empty)) .stage-backdrop-room{opacity:1}
 .stage-demo-answer:nth-child(2){--cell-accent:#8dffd2}.stage-demo-answer:nth-child(3){--cell-accent:#c7ff73}.stage-demo-answer:nth-child(4){--cell-accent:#45e9ff}
 body:not(:has(#pinDisplay:not(:empty))) .stage-demo,body.game-mode .stage-demo{opacity:0}
 .stage-smoke{position:absolute;z-index:2;bottom:-18%;width:58vw;height:46vh;pointer-events:none;opacity:.32;filter:blur(28px);background:radial-gradient(ellipse at 50% 70%,rgba(118,255,188,.3),rgba(30,171,102,.13) 36%,transparent 72%);mix-blend-mode:screen;animation:smokeDrift 12s ease-in-out infinite alternate}.stage-smoke-left{left:-16%;animation-delay:-4s}.stage-smoke-right{right:-16%;animation-direction:alternate-reverse}@keyframes smokeDrift{0%{transform:translate3d(-2%,10%,0) scale(.9);opacity:.18}50%{opacity:.38}100%{transform:translate3d(6%,-12%,0) scale(1.12);opacity:.28}}
+.stage-props{position:absolute;inset:0;z-index:4;overflow:hidden;pointer-events:none;transition:opacity .55s ease,filter .55s ease}
+.stage-prop-wrap{--stage-px:0px;--stage-py:0px;position:absolute;display:block;transform:translate3d(var(--stage-px),var(--stage-py),0);transition:opacity .55s ease;will-change:transform}
+.stage-prop{display:block;width:100%;height:auto;transform-origin:50% 70%;will-change:transform,filter,opacity;filter:drop-shadow(0 20px 30px rgba(0,0,0,.54)) drop-shadow(0 0 18px rgba(55,255,172,.18))}
+.stage-prop-book{left:-4.5vw;bottom:-16vh;width:clamp(190px,22vw,340px)}
+.stage-prop-book .stage-prop{animation:propFloatBook 7.8s ease-in-out infinite alternate}
+.stage-prop-character{right:-5.5vw;bottom:-18vh;width:clamp(210px,25vw,380px)}
+.stage-prop-character .stage-prop{animation:propFloatCharacter 9.4s ease-in-out -2.2s infinite alternate}
+.stage-prop-cards{right:3.5vw;top:11vh;width:clamp(104px,12vw,184px);opacity:.52}
+.stage-prop-cards .stage-prop{animation:propFloatCards 6.8s ease-in-out -1.4s infinite alternate;filter:drop-shadow(0 20px 26px rgba(0,0,0,.55)) drop-shadow(0 0 20px rgba(255,72,82,.26))}
+.room-active:not(.stage-preview-mode) .stage-props{opacity:.2;filter:saturate(.72) brightness(.72)}
+.room-active.stage-preview-mode .stage-props{opacity:1;filter:none}
+@keyframes propFloatBook{0%{transform:translate3d(0,7px,0) rotate(-2.2deg) scale(.985);filter:drop-shadow(0 20px 30px rgba(0,0,0,.54)) drop-shadow(0 0 12px rgba(55,255,172,.12))}55%{filter:drop-shadow(0 24px 34px rgba(0,0,0,.5)) drop-shadow(0 0 28px rgba(255,183,54,.3))}100%{transform:translate3d(9px,-9px,0) rotate(1.2deg) scale(1.025)}}
+@keyframes propFloatCharacter{0%{transform:translate3d(0,9px,0) rotate(1.4deg) scale(.99);filter:drop-shadow(0 20px 32px rgba(0,0,0,.58)) drop-shadow(0 0 16px rgba(55,255,172,.2))}50%{filter:drop-shadow(0 24px 38px rgba(0,0,0,.5)) drop-shadow(0 0 34px rgba(66,255,171,.38))}100%{transform:translate3d(-8px,-10px,0) rotate(-1deg) scale(1.025)}}
+@keyframes propFloatCards{0%{transform:translate3d(0,4px,0) rotate(1.5deg) scale(.98);opacity:.72}45%{opacity:1}100%{transform:translate3d(-7px,-8px,0) rotate(-2deg) scale(1.035);opacity:.84}}
 .brand-bar{background:rgba(1,8,6,.78)!important;border-bottom-color:rgba(82,255,181,.16)!important;box-shadow:0 10px 34px rgba(0,0,0,.3)!important}
 .brand-glyph{border-color:rgba(84,255,181,.62)!important;background:linear-gradient(145deg,rgba(84,255,181,.16),rgba(17,126,79,.12))!important;box-shadow:inset 0 0 0 5px rgba(255,255,255,.025),0 0 26px rgba(84,255,181,.2)!important}
 .brand-actions{display:flex;align-items:center;gap:14px}.stage-preview-button{height:34px;padding:0 14px;border:1px solid rgba(92,255,186,.28);border-radius:999px;background:rgba(8,38,27,.46);color:#baffdb;font:800 9px/1 "Sora";letter-spacing:.16em;text-transform:uppercase;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);cursor:pointer}.stage-preview-button:hover{background:rgba(33,126,87,.5);border-color:rgba(110,255,199,.58);transform:translateY(-1px)}
@@ -2679,7 +2695,7 @@ body:not(:has(#pinDisplay:not(:empty))) .stage-demo,body.game-mode .stage-demo{o
 .team-mode-shell,.players{background:rgba(1,10,8,.42)!important;border-color:rgba(100,255,190,.17)!important}
 select,input[type="text"],input[type="number"]{background:rgba(1,8,7,.72)!important;border-color:rgba(103,255,193,.2)!important}
 .primary{background:linear-gradient(135deg,#08794f,#21bd7d)!important;border-color:rgba(109,255,197,.3)!important}.success{background:linear-gradient(135deg,#16c77e,#55eba9)!important;border-color:rgba(113,255,200,.36)!important;color:#03120c!important}.success:hover,#startGameBtn:hover{background:linear-gradient(135deg,#22d88d,#70f6ba)!important;color:#03120c!important;border-color:rgba(141,255,211,.58)!important;box-shadow:0 14px 38px rgba(31,220,137,.23)!important}.danger{background:rgba(3,16,12,.48)!important;color:#bfffe0!important;border-color:rgba(107,255,195,.2)!important}
-.stage-preview-mode #controlPanelWrapper{opacity:0;visibility:hidden;pointer-events:none;transform:translateY(12px) scale(.97)}#controlPanelWrapper{transition:opacity .3s ease,visibility .3s ease,transform .3s ease}.stage-preview-mode .stage-demo{opacity:1}.stage-preview-mode .stage-frame{filter:brightness(1.08) saturate(1.08)}body.game-mode .stage-demo{opacity:0!important}body.game-mode .stage-preview-button{display:none}
+.stage-preview-mode #controlPanelWrapper{opacity:0;visibility:hidden;pointer-events:none;transform:translateY(12px) scale(.97)}#controlPanelWrapper{transition:opacity .3s ease,visibility .3s ease,transform .3s ease}.stage-preview-mode .stage-demo{opacity:1}.room-active.stage-preview-mode .stage-demo{opacity:0!important}.stage-preview-mode .stage-frame{filter:brightness(1.08) saturate(1.08)}body.game-mode .stage-demo{opacity:0!important}body.game-mode .stage-preview-button{display:none}
 body:not(:has(#pinDisplay:not(:empty))) .stage-preview-button{display:none}
 body:not(:has(#pinDisplay:not(:empty))) .container{align-items:flex-end!important;padding-bottom:clamp(18px,4vh,42px)!important}
 body:not(:has(#pinDisplay:not(:empty))) #controlPanelWrapper{max-width:720px!important;height:auto!important}
@@ -2695,8 +2711,9 @@ body:has(#pinDisplay:not(:empty)) #controlPanel{background:radial-gradient(620px
 body:has(#pinDisplay:not(:empty)) #controlPanel>.panel{background:linear-gradient(145deg,rgba(7,30,22,.74),rgba(2,15,10,.82))!important}
 body:has(#pinDisplay:not(:empty)) #controlPanel>.panel:nth-child(2){background:rgba(1,13,9,.78)!important}
 @media (min-width:781px){.container{display:flex!important;align-items:center!important;justify-content:center!important}#controlPanelWrapper{max-width:780px!important;height:min(80%,560px)!important}#controlPanel{grid-template-rows:minmax(205px,.84fr) minmax(245px,1.16fr)!important;padding:8px!important}#controlPanel>.panel{padding:12px 18px!important}.panel h1,.panel h2{font-size:30px!important}.panel-subtitle{font-size:11px!important;margin-bottom:8px!important}.section-kicker{margin-bottom:6px!important}.create-controls select,.create-controls button{height:44px!important;min-height:44px!important}.team-mode-shell{padding:8px!important}.team-mode-row{gap:6px!important}.team-toggle,.team-size-group,.team-mode-row button{min-height:40px!important;height:40px!important}.players{min-height:48px!important;max-height:56px!important;margin-top:6px!important;padding:6px!important}.lobby-actions{margin-top:6px!important}.lobby-actions button{height:44px!important}.fair-play-note{display:none!important}}
-@media (max-width:780px){.stage-frame{width:100vw;height:100dvh;top:50%;transform:translate3d(-50%,-50%,0)}.stage-backdrop{object-fit:contain!important}.stage-demo{display:none}.stage-preview-button{height:30px;padding:0 9px;font-size:7px}.stage-preview-mode .stage-demo{display:block}#controlPanel{background:linear-gradient(145deg,rgba(3,14,11,.58),rgba(1,8,7,.7))!important;backdrop-filter:blur(8px) saturate(108%)!important}}
-@media (prefers-reduced-motion:reduce){#controlPanel,.neon-scene,.ambient-object,.stage-haze{transform:none!important;animation:none!important}.stage-frame{animation:none!important}.stage-pulse{animation:none!important}.cursor-glow,.stage-cursor-light{display:none!important}}
+@media (max-width:780px){.stage-frame{width:100vw;height:100dvh;top:50%;transform:translate3d(-50%,-50%,0)}.stage-backdrop{object-fit:contain!important}.stage-demo{display:none}.stage-preview-button{height:30px;padding:0 9px;font-size:7px}.stage-preview-mode .stage-demo{display:block}#controlPanel{background:linear-gradient(145deg,rgba(3,14,11,.58),rgba(1,8,7,.7))!important;backdrop-filter:blur(8px) saturate(108%)!important}.stage-prop-book{left:-16vw;bottom:-7vh;width:clamp(128px,39vw,190px)}.stage-prop-character{right:-20vw;bottom:-8vh;width:clamp(142px,44vw,220px);opacity:.64}.stage-prop-cards{right:-4vw;top:13vh;width:clamp(78px,23vw,118px);opacity:.35}}
+@media (max-width:480px){.stage-prop-cards{display:none}.stage-prop-character{opacity:.48}.room-active:not(.stage-preview-mode) .stage-props{opacity:.1}}
+@media (prefers-reduced-motion:reduce){#controlPanel,.neon-scene,.ambient-object,.stage-haze,.stage-prop{transform:none!important;animation:none!important}.stage-frame{animation:none!important}.stage-pulse{animation:none!important}.cursor-glow,.stage-cursor-light{display:none!important}}
 </style>
 
 
@@ -2732,6 +2749,11 @@ body:has(#pinDisplay:not(:empty)) #controlPanel>.panel:nth-child(2){background:r
                 <div class="stage-demo-answer"><span>D</span>Marvel Contest of Champions</div>
             </div>
         </div>
+    </div>
+    <div class="stage-props">
+        <span class="stage-prop-wrap stage-prop-book" data-stage-depth="1.15"><img class="stage-prop" src="/static/assets/mr-smoke-quiz-book-v1.png" alt=""></span>
+        <span class="stage-prop-wrap stage-prop-character" data-stage-depth="1.35"><img class="stage-prop" src="/static/assets/mr-smoke-character-v1.png" alt=""></span>
+        <span class="stage-prop-wrap stage-prop-cards" data-stage-depth="1.75"><img class="stage-prop" src="/static/assets/mr-smoke-red-cards-v1.png" alt=""></span>
     </div>
     <div class="stage-smoke stage-smoke-left"></div>
     <div class="stage-smoke stage-smoke-right"></div>
@@ -2908,6 +2930,7 @@ document.getElementById("stagePreviewBtn")?.addEventListener("click", toggleStag
     const stageFrame = document.querySelector(".stage-frame");
     const stageLight = document.querySelector(".stage-cursor-light");
     const stageHaze = document.querySelector(".stage-haze");
+    const stageProps = Array.from(document.querySelectorAll(".stage-prop-wrap[data-stage-depth]"));
     let targetX = 0;
     let targetY = 0;
     let currentX = 0;
@@ -2923,6 +2946,11 @@ document.getElementById("stagePreviewBtn")?.addEventListener("click", toggleStag
             const depth = Number(object.dataset.depth || 1);
             object.style.setProperty("--px", `${currentX * depth * 22}px`);
             object.style.setProperty("--py", `${currentY * depth * 17}px`);
+        });
+        stageProps.forEach((object)=>{
+            const depth = Number(object.dataset.stageDepth || 1);
+            object.style.setProperty("--stage-px", `${currentX * depth * 7}px`);
+            object.style.setProperty("--stage-py", `${currentY * depth * 5}px`);
         });
         if(cockpit){
             cockpit.style.transform = `perspective(1800px) rotateX(${-currentY * .12}deg) rotateY(${currentX * .16}deg)`;
