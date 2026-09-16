@@ -1919,6 +1919,7 @@ body::before{inset:0!important;background-image:linear-gradient(rgba(255,255,255
 .answer-card::after{left:auto!important;background:rgba(255,255,255,.025)!important;transition:transform .22s ease,border-color .22s ease,background .22s ease!important}.answer-card:hover::after{left:auto!important;transform:translateY(-50%) scale(1.08)!important;background:color-mix(in srgb,var(--answer-accent),transparent 88%)!important;border-color:var(--answer-accent)!important}
 @media (max-height:700px) and (min-width:621px){#joinSection{padding-top:18px!important;padding-bottom:18px!important}.join-emblem{width:48px!important;height:48px!important;margin-bottom:8px!important}.fair-play-note{display:none!important}}
 @media (max-width:620px){body{padding-top:54px!important}.brand-bar{height:54px!important}.brand-glyph{width:31px!important;height:31px!important}.brand-status{display:none!important}.container{height:calc(100dvh - 54px)!important;padding:7px!important}.glass{border-radius:21px!important}#joinSection{padding:clamp(16px,3vh,24px) 14px!important}.join-emblem{width:48px!important;height:48px!important;margin-bottom:10px!important}#joinSection h1{font-size:clamp(30px,10vw,40px)!important}.join-subtitle{font-size:12px!important;margin-bottom:13px!important}.join-fields{grid-template-columns:1fr!important;gap:7px!important}.join-fields label{gap:5px!important}.join-fields input{min-height:48px!important}#joinBtn,#returnBtn{height:49px!important;margin-top:9px!important}.fair-play-note{margin-top:8px!important;padding:7px 9px!important}#gameSection{padding:12px!important}.question,.question-title{font-size:clamp(23px,7vw,34px)!important}.answer-card{min-height:58px!important;margin:5px 0!important;font-size:clamp(15px,4.4vw,19px)!important;padding:12px 48px 12px 15px!important}#gameSection>.fair-play-note{display:none!important}}
+.fair-play-gate{position:fixed;inset:0;z-index:10010;display:grid;place-items:center;padding:18px;background:radial-gradient(circle at 50% 46%,rgba(31,183,116,.2),transparent 38%),rgba(1,8,6,.76);backdrop-filter:blur(18px) saturate(125%);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .32s ease,visibility .32s ease}.fair-play-gate.show{opacity:1;visibility:visible;pointer-events:auto}.fair-play-card{position:relative;width:min(92vw,520px);overflow:hidden;padding:clamp(28px,5vw,46px);border:1px solid rgba(99,255,188,.36);border-radius:30px;background:radial-gradient(360px 230px at 50% 0%,rgba(62,255,169,.13),transparent 72%),linear-gradient(145deg,rgba(4,25,18,.985),rgba(1,12,9,.99));box-shadow:0 38px 120px rgba(0,0,0,.64),0 0 58px rgba(36,223,139,.14),inset 0 1px 0 rgba(225,255,240,.1);text-align:center;transform:translateY(18px) scale(.96);transition:transform .4s cubic-bezier(.16,1,.3,1)}.fair-play-gate.show .fair-play-card{transform:none}.fair-play-card::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(105deg,transparent 30%,rgba(132,255,205,.08) 48%,transparent 66%);transform:translateX(-120%);animation:fairPlayScan 4.8s ease-in-out infinite}.fair-play-emblem{position:relative;width:86px;height:86px;margin:0 auto 20px;display:grid;place-items:center;border:1px solid rgba(100,255,188,.42);border-radius:28px;background:linear-gradient(145deg,rgba(65,255,174,.16),rgba(10,80,52,.12));box-shadow:inset 0 0 0 7px rgba(255,255,255,.025),0 0 38px rgba(48,238,151,.22);animation:fairPlayPulse 2.8s ease-in-out infinite}.fair-play-emblem svg{width:42px;height:42px;stroke:#73ffc0;filter:drop-shadow(0 0 12px rgba(78,255,177,.5))}.fair-play-kicker{color:#67ffb8;font:800 9px/1 "DM Sans",Arial,sans-serif;letter-spacing:.24em;text-transform:uppercase}.fair-play-card h2{margin:12px 0 10px;color:#f3fff8;font:800 clamp(27px,6vw,42px)/1.02 "DM Sans",Arial,sans-serif;letter-spacing:-.055em}.fair-play-card p{margin:0 0 24px;color:#a7c6b6;font:600 14px/1.45 "DM Sans",Arial,sans-serif}.fair-play-accept{position:relative;z-index:1;width:100%!important;height:56px!important;margin:0!important;border:1px solid rgba(147,255,211,.52)!important;border-radius:15px!important;background:linear-gradient(135deg,#20c77e,#66efb2)!important;color:#02150d!important;font:800 14px/1 "DM Sans",Arial,sans-serif!important;box-shadow:0 14px 38px rgba(29,213,132,.24)!important}.fair-play-accept:hover{background:linear-gradient(135deg,#32dc91,#84ffc6)!important;color:#01120b!important;box-shadow:0 18px 44px rgba(35,230,147,.34)!important}@keyframes fairPlayScan{0%,48%{transform:translateX(-120%)}72%,100%{transform:translateX(120%)}}@keyframes fairPlayPulse{0%,100%{transform:translateY(0);box-shadow:inset 0 0 0 7px rgba(255,255,255,.025),0 0 26px rgba(48,238,151,.14)}50%{transform:translateY(-4px);box-shadow:inset 0 0 0 7px rgba(255,255,255,.035),0 0 48px rgba(48,238,151,.32)}}@media (max-width:620px){.fair-play-card{padding:26px 20px;border-radius:24px}.fair-play-emblem{width:72px;height:72px;margin-bottom:16px;border-radius:23px}.fair-play-emblem svg{width:36px;height:36px}.fair-play-card p{font-size:13px;margin-bottom:20px}.fair-play-accept{height:52px!important}}@media (prefers-reduced-motion:reduce){.fair-play-card::after,.fair-play-emblem{animation:none!important}}
 
 </style>
 
@@ -1960,9 +1961,22 @@ body::before{inset:0!important;background-image:linear-gradient(rgba(255,255,255
 
 </div>
 
+<div id="fairPlayGate" class="fair-play-gate" aria-hidden="true">
+    <div class="fair-play-card" role="dialog" aria-modal="true" aria-labelledby="fairPlayTitle">
+        <div class="fair-play-emblem" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none"><path d="M24 5 39 11v11c0 9.6-6.1 17.1-15 21-8.9-3.9-15-11.4-15-21V11L24 5Z" stroke-width="2.4"/><path d="m16.5 24 5 5 10.5-11" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="fair-play-kicker">Честная игра</div>
+        <h2 id="fairPlayTitle">Не подглядывайте</h2>
+        <p>Только вы, вопрос и ваши знания.</p>
+        <button class="fair-play-accept" type="button" onclick="acknowledgeFairPlay()">Играю честно</button>
+    </div>
+</div>
+
 <script>
 // Backward-compat alias (old code uses `socket` everywhere)
 let socket = null;
+let fairPlayAcceptedPin = "";
 
 // === CONNECTION RESILIENCE (PLAYER) ===
 let ws = null;
@@ -2064,6 +2078,28 @@ function setWaitingContent(message){
   document.getElementById("content").innerHTML = `<div class='waiting'>${escapeHtml(message)}</div>`;
 }
 
+function hideFairPlayGate(){
+  const gate = document.getElementById("fairPlayGate");
+  if(!gate) return;
+  gate.classList.remove("show");
+  gate.setAttribute("aria-hidden", "true");
+}
+
+function showFairPlayGate(){
+  const pin = wsJoin && String(wsJoin.pin || "").trim();
+  if(!pin || fairPlayAcceptedPin === pin) return;
+  const gate = document.getElementById("fairPlayGate");
+  if(!gate) return;
+  gate.classList.add("show");
+  gate.setAttribute("aria-hidden", "false");
+  window.setTimeout(()=> gate.querySelector(".fair-play-accept")?.focus(), 360);
+}
+
+function acknowledgeFairPlay(){
+  fairPlayAcceptedPin = wsJoin && String(wsJoin.pin || "").trim();
+  hideFairPlayGate();
+}
+
 function renderFatalPlayerError(message){
   const gameSection = document.getElementById("gameSection");
   const joinSection = document.getElementById("joinSection");
@@ -2112,6 +2148,7 @@ function resetJoinUiState(){
   if(adminMessageOverlay) adminMessageOverlay.classList.remove("show");
   const pauseOverlay = document.getElementById("pauseOverlay");
   if(pauseOverlay) pauseOverlay.classList.add("hidden");
+  hideFairPlayGate();
 }
 
 function updateReturnButton(){
@@ -3912,6 +3949,7 @@ function handlePlayerMessage(raw){
         document.getElementById("gameSection").style.display="block";
         setWaitingContent("Ожидание запуска игры...");
         renderPlayerTeamPanel();
+        showFairPlayGate();
     }
 
     if(data.type==="team_assignment"){
@@ -3990,6 +4028,7 @@ function handlePlayerMessage(raw){
     }
     if(data.type==="question"){
         setJoinButtonLoading(false);
+        hideFairPlayGate();
         try{
         clearCrosswordIntroTimer();
         clearLeaderboardSyncTimer();
@@ -4848,6 +4887,9 @@ function join(){
     currentPlayerTeams = [];
     currentPlayerTeamLeaderboard = [];
 
+    if(!wsJoin || String(wsJoin.pin || "") !== pin){
+        fairPlayAcceptedPin = "";
+    }
     wsJoin = { pin, name };
     hasConfirmedServerSession = false;
     updateReturnButton();
