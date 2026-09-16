@@ -2758,6 +2758,15 @@ body:has(#pinDisplay:not(:empty)):not(.game-mode) #pinDisplay::after{content:"";
 @media (min-width:781px) and (max-width:980px){body:has(#pinDisplay:not(:empty)):not(.game-mode) #controlPanel>.panel:first-child{padding-right:300px!important}body:has(#pinDisplay:not(:empty)):not(.game-mode) #pinDisplay{width:270px!important}}
 @media (min-width:981px){body:has(#pinDisplay:not(:empty)):not(.game-mode) #controlPanel>.panel:first-child{padding-right:354px!important}}
 @media (min-width:781px){body:not(:has(#pinDisplay:not(:empty))) .stage-props{opacity:1!important;visibility:visible!important;filter:saturate(1.18) brightness(1.08)!important}body:not(:has(#pinDisplay:not(:empty))) .stage-prop-character{right:clamp(4px,1vw,22px)!important;bottom:clamp(4px,1.5vh,18px)!important;width:clamp(270px,20vw,390px)!important;opacity:1!important;filter:drop-shadow(0 24px 38px rgba(0,0,0,.68)) drop-shadow(0 0 32px rgba(61,255,177,.48))!important}}
+/* Live round: the quiz becomes the whole interface; lobby scenery is fully removed. */
+body.game-mode{padding-top:0!important;background:#05071d!important}
+body.game-mode .brand-bar,body.game-mode .stage-world,body.game-mode .ambient-art,body.game-mode #controlPanelWrapper{display:none!important}
+body.game-mode .stage-props,body.game-mode .object-smoke,body.game-mode .stage-smoke,body.game-mode .stage-haze,body.game-mode .stage-pulse,body.game-mode .stage-cursor-light{display:none!important;animation:none!important}
+body.game-mode::before,body.game-mode::after{display:none!important}
+body.game-mode .container{box-sizing:border-box!important;width:100vw!important;max-width:none!important;height:100dvh!important;min-height:100dvh!important;margin:0!important;padding:0!important}
+body.game-mode #gameSection{box-sizing:border-box!important;width:100vw!important;max-width:none!important;height:100dvh!important;min-height:100dvh!important;margin:0!important;padding:clamp(20px,3vw,52px)!important;border:0!important;border-radius:0!important;box-shadow:none!important;overflow:auto!important;background:radial-gradient(900px 520px at 8% 0%,rgba(35,71,140,.16),transparent 66%),linear-gradient(145deg,#080b2b,#04061c)!important}
+body.game-mode .room-pin-badge{position:absolute!important;left:auto!important;width:auto!important;min-width:0!important}
+@media (max-width:780px){body.game-mode{padding-top:0!important}body.game-mode .container{height:100dvh!important;padding:0!important}body.game-mode #gameSection{height:100dvh!important;min-height:100dvh!important;border-radius:0!important;padding:14px!important}}
 </style>
 
 
