@@ -1921,6 +1921,28 @@ body::before{inset:0!important;background-image:linear-gradient(rgba(255,255,255
 @media (max-width:620px){body{padding-top:54px!important}.brand-bar{height:54px!important}.brand-glyph{width:31px!important;height:31px!important}.brand-status{display:none!important}.container{height:calc(100dvh - 54px)!important;padding:7px!important}.glass{border-radius:21px!important}#joinSection{padding:clamp(16px,3vh,24px) 14px!important}.join-emblem{width:48px!important;height:48px!important;margin-bottom:10px!important}#joinSection h1{font-size:clamp(30px,10vw,40px)!important}.join-subtitle{font-size:12px!important;margin-bottom:13px!important}.join-fields{grid-template-columns:1fr!important;gap:7px!important}.join-fields label{gap:5px!important}.join-fields input{min-height:48px!important}#joinBtn,#returnBtn{height:49px!important;margin-top:9px!important}.fair-play-note{margin-top:8px!important;padding:7px 9px!important}#gameSection{padding:12px!important}.question,.question-title{font-size:clamp(23px,7vw,34px)!important}.answer-card{min-height:58px!important;margin:5px 0!important;font-size:clamp(15px,4.4vw,19px)!important;padding:12px 48px 12px 15px!important}#gameSection>.fair-play-note{display:none!important}}
 .fair-play-gate{position:fixed;inset:0;z-index:10010;display:grid;place-items:center;padding:18px;background:radial-gradient(circle at 50% 46%,rgba(31,183,116,.2),transparent 38%),rgba(1,8,6,.76);backdrop-filter:blur(18px) saturate(125%);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .32s ease,visibility .32s ease}.fair-play-gate.show{opacity:1;visibility:visible;pointer-events:auto}.fair-play-card{position:relative;width:min(92vw,520px);overflow:hidden;padding:clamp(28px,5vw,46px);border:1px solid rgba(99,255,188,.36);border-radius:30px;background:radial-gradient(360px 230px at 50% 0%,rgba(62,255,169,.13),transparent 72%),linear-gradient(145deg,rgba(4,25,18,.985),rgba(1,12,9,.99));box-shadow:0 38px 120px rgba(0,0,0,.64),0 0 58px rgba(36,223,139,.14),inset 0 1px 0 rgba(225,255,240,.1);text-align:center;transform:translateY(18px) scale(.96);transition:transform .4s cubic-bezier(.16,1,.3,1)}.fair-play-gate.show .fair-play-card{transform:none}.fair-play-card::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(105deg,transparent 30%,rgba(132,255,205,.08) 48%,transparent 66%);transform:translateX(-120%);animation:fairPlayScan 4.8s ease-in-out infinite}.fair-play-emblem{position:relative;width:86px;height:86px;margin:0 auto 20px;display:grid;place-items:center;border:1px solid rgba(100,255,188,.42);border-radius:28px;background:linear-gradient(145deg,rgba(65,255,174,.16),rgba(10,80,52,.12));box-shadow:inset 0 0 0 7px rgba(255,255,255,.025),0 0 38px rgba(48,238,151,.22);animation:fairPlayPulse 2.8s ease-in-out infinite}.fair-play-emblem svg{width:42px;height:42px;stroke:#73ffc0;filter:drop-shadow(0 0 12px rgba(78,255,177,.5))}.fair-play-kicker{color:#67ffb8;font:800 9px/1 "DM Sans",Arial,sans-serif;letter-spacing:.24em;text-transform:uppercase}.fair-play-card h2{margin:12px 0 10px;color:#f3fff8;font:800 clamp(27px,6vw,42px)/1.02 "DM Sans",Arial,sans-serif;letter-spacing:-.055em}.fair-play-card p{margin:0 0 24px;color:#a7c6b6;font:600 14px/1.45 "DM Sans",Arial,sans-serif}.fair-play-accept{position:relative;z-index:1;width:100%!important;height:56px!important;margin:0!important;border:1px solid rgba(147,255,211,.52)!important;border-radius:15px!important;background:linear-gradient(135deg,#20c77e,#66efb2)!important;color:#02150d!important;font:800 14px/1 "DM Sans",Arial,sans-serif!important;box-shadow:0 14px 38px rgba(29,213,132,.24)!important}.fair-play-accept:hover{background:linear-gradient(135deg,#32dc91,#84ffc6)!important;color:#01120b!important;box-shadow:0 18px 44px rgba(35,230,147,.34)!important}@keyframes fairPlayScan{0%,48%{transform:translateX(-120%)}72%,100%{transform:translateX(120%)}}@keyframes fairPlayPulse{0%,100%{transform:translateY(0);box-shadow:inset 0 0 0 7px rgba(255,255,255,.025),0 0 26px rgba(48,238,151,.14)}50%{transform:translateY(-4px);box-shadow:inset 0 0 0 7px rgba(255,255,255,.035),0 0 48px rgba(48,238,151,.32)}}@media (max-width:620px){.fair-play-card{padding:26px 20px;border-radius:24px}.fair-play-emblem{width:72px;height:72px;margin-bottom:16px;border-radius:23px}.fair-play-emblem svg{width:36px;height:36px}.fair-play-card p{font-size:13px;margin-bottom:20px}.fair-play-accept{height:52px!important}}@media (prefers-reduced-motion:reduce){.fair-play-card::after,.fair-play-emblem{animation:none!important}}
 
+/* Mr Smoke player arena — visual atmosphere only; quiz-card geometry stays unchanged. */
+body{background:#020806!important}
+.player-arena{--arena-x:0px;--arena-y:0px;position:fixed;inset:60px 0 0;z-index:0;overflow:hidden;pointer-events:none;background:#020806;isolation:isolate}
+.player-arena-image{position:absolute;inset:-3%;width:106%;height:106%;object-fit:cover;object-position:center;transform:translate3d(var(--arena-x),var(--arena-y),0) scale(1.035);filter:saturate(1.13) contrast(1.06) brightness(.72);transition:transform .18s cubic-bezier(.2,.8,.2,1),filter .5s ease;will-change:transform}
+.player-arena::before{content:"";position:absolute;inset:0;z-index:2;background:radial-gradient(ellipse at center,rgba(0,9,6,.08) 16%,rgba(0,7,5,.2) 62%,rgba(0,3,2,.72) 100%),linear-gradient(180deg,rgba(0,10,7,.08),rgba(0,8,5,.3));pointer-events:none}
+.player-arena::after{content:"";position:absolute;z-index:3;inset:0;background:linear-gradient(112deg,transparent 16%,rgba(80,255,185,.055) 37%,transparent 52%,rgba(61,255,170,.045) 72%,transparent 88%);background-size:190% 100%;mix-blend-mode:screen;animation:playerArenaSweep 10s ease-in-out infinite alternate}
+.player-arena-beams{position:absolute;z-index:1;inset:-10% 0 0;background:conic-gradient(from 255deg at 50% 0%,transparent 0 39%,rgba(80,255,183,.09) 43%,transparent 47% 53%,rgba(80,255,183,.08) 57%,transparent 61%);filter:blur(6px);opacity:.72;animation:playerArenaBeams 5.6s ease-in-out infinite}
+.player-arena-glow{position:absolute;z-index:3;left:50%;top:2%;width:min(70vw,760px);height:min(38vw,390px);transform:translateX(-50%);border-radius:50%;background:radial-gradient(circle,rgba(62,255,169,.15),rgba(26,151,96,.06) 42%,transparent 72%);filter:blur(14px);animation:playerArenaGlow 3.8s ease-in-out infinite}
+.player-arena-smoke{position:absolute;z-index:4;bottom:-12%;width:min(42vw,520px);height:52%;filter:blur(20px);opacity:.62;mix-blend-mode:screen}.player-arena-smoke.left{left:-8%}.player-arena-smoke.right{right:-8%;transform:scaleX(-1)}
+.player-arena-smoke i{position:absolute;inset:auto 4% 0;width:82%;height:86%;border-radius:48% 52% 44% 56%;background:radial-gradient(ellipse at 45% 70%,rgba(81,255,180,.28),rgba(31,159,99,.13) 34%,rgba(7,74,44,.05) 55%,transparent 73%);animation:playerArenaSmoke 8.6s ease-in-out infinite;will-change:transform,opacity}.player-arena-smoke i:nth-child(2){left:28%;bottom:-10%;width:62%;height:72%;animation-duration:10.2s;animation-delay:-4.1s;opacity:.72}.player-arena-smoke i:nth-child(3){left:-8%;bottom:-18%;width:64%;height:66%;animation-duration:9.4s;animation-delay:-6.2s;opacity:.55}
+.container{position:relative!important;z-index:5!important}
+.brand-bar{z-index:20!important;background:linear-gradient(90deg,rgba(1,12,8,.93),rgba(3,24,16,.86),rgba(1,12,8,.93))!important;border-bottom-color:rgba(91,255,187,.2)!important}
+.glass{background:radial-gradient(540px 300px at 10% 0%,rgba(45,227,142,.08),transparent 67%),linear-gradient(145deg,rgba(3,22,16,.93),rgba(1,11,8,.965))!important;border-color:rgba(94,255,187,.24)!important;box-shadow:0 34px 100px rgba(0,0,0,.54),0 0 50px rgba(35,216,132,.07),inset 0 1px 0 rgba(214,255,235,.08)!important}
+.section-kicker,.brand-name small,.fair-play-note strong{color:#65efac!important}.brand-glyph{border-color:rgba(87,255,180,.55)!important;background:linear-gradient(145deg,rgba(52,235,145,.16),rgba(6,69,42,.22))!important;box-shadow:0 0 26px rgba(48,231,143,.16)!important}
+.answer-card:hover{box-shadow:0 12px 34px rgba(0,0,0,.22),inset 0 0 0 1px rgba(105,255,196,.08)!important}
+@keyframes playerArenaSweep{from{background-position:0 0;opacity:.48}to{background-position:100% 0;opacity:.9}}
+@keyframes playerArenaBeams{0%,100%{opacity:.42;transform:scaleX(.94)}50%{opacity:.82;transform:scaleX(1.04)}}
+@keyframes playerArenaGlow{0%,100%{opacity:.42;transform:translateX(-50%) scale(.92)}50%{opacity:.92;transform:translateX(-50%) scale(1.06)}}
+@keyframes playerArenaSmoke{0%{transform:translate3d(-5%,20%,0) scale(.8) rotate(-4deg);opacity:.08}30%{opacity:.62}68%{opacity:.4}100%{transform:translate3d(12%,-32%,0) scale(1.22) rotate(7deg);opacity:0}}
+@media (max-width:620px){.player-arena{inset:54px 0 0}.player-arena-image{object-position:center center;filter:saturate(1.08) contrast(1.05) brightness(.56)}.player-arena-smoke{width:70vw;height:42%;opacity:.42}.player-arena::before{background:radial-gradient(ellipse at center,rgba(0,8,5,.14),rgba(0,3,2,.7) 100%)}}
+@media (prefers-reduced-motion:reduce){.player-arena-image{transition:none!important}.player-arena::after,.player-arena-beams,.player-arena-glow,.player-arena-smoke i{animation:none!important}}
+
 </style>
 
 </head>
@@ -1930,6 +1952,14 @@ body::before{inset:0!important;background-image:linear-gradient(rgba(255,255,255
     <div class="brand-lockup"><span class="brand-glyph">Q</span><span class="brand-name">QUESTRA<small>PLAYER</small></span></div>
     <div class="brand-status"><i></i> SECURE CONNECTION</div>
 </header>
+
+<div class="player-arena" aria-hidden="true">
+    <img class="player-arena-image" src="/static/assets/mr-smoke-player-arena-v1.jpg" alt="">
+    <div class="player-arena-beams"></div>
+    <div class="player-arena-glow"></div>
+    <div class="player-arena-smoke left"><i></i><i></i><i></i></div>
+    <div class="player-arena-smoke right"><i></i><i></i><i></i></div>
+</div>
 
 <div class="container">
 
@@ -1977,6 +2007,25 @@ body::before{inset:0!important;background-image:linear-gradient(rgba(255,255,255
 // Backward-compat alias (old code uses `socket` everywhere)
 let socket = null;
 let fairPlayAcceptedPin = "";
+
+const playerArena = document.querySelector(".player-arena");
+let playerArenaFrame = 0;
+function movePlayerArena(event){
+  if(!playerArena || window.matchMedia("(prefers-reduced-motion: reduce)").matches || window.matchMedia("(pointer: coarse)").matches) return;
+  const x = (event.clientX / Math.max(window.innerWidth, 1) - .5) * 2;
+  const y = (event.clientY / Math.max(window.innerHeight, 1) - .5) * 2;
+  if(playerArenaFrame) cancelAnimationFrame(playerArenaFrame);
+  playerArenaFrame = requestAnimationFrame(()=>{
+    playerArena.style.setProperty("--arena-x", `${x * -13}px`);
+    playerArena.style.setProperty("--arena-y", `${y * -9}px`);
+  });
+}
+window.addEventListener("pointermove", movePlayerArena, {passive:true});
+window.addEventListener("pointerleave", ()=>{
+  if(!playerArena) return;
+  playerArena.style.setProperty("--arena-x", "0px");
+  playerArena.style.setProperty("--arena-y", "0px");
+});
 
 // === CONNECTION RESILIENCE (PLAYER) ===
 let ws = null;
