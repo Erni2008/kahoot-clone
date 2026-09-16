@@ -2714,6 +2714,30 @@ body:has(#pinDisplay:not(:empty)) #controlPanel>.panel:nth-child(2){background:r
 @media (max-width:780px){.stage-frame{width:100vw;height:100dvh;top:50%;transform:translate3d(-50%,-50%,0)}.stage-backdrop{object-fit:contain!important}.stage-demo{display:none}.stage-preview-button{height:30px;padding:0 9px;font-size:7px}.stage-preview-mode .stage-demo{display:block}#controlPanel{background:linear-gradient(145deg,rgba(3,14,11,.58),rgba(1,8,7,.7))!important;backdrop-filter:blur(8px) saturate(108%)!important}.stage-prop-book{left:-16vw;bottom:-7vh;width:clamp(128px,39vw,190px)}.stage-prop-character{right:-20vw;bottom:-8vh;width:clamp(142px,44vw,220px);opacity:.64}.stage-prop-cards{right:-4vw;top:13vh;width:clamp(78px,23vw,118px);opacity:.35}}
 @media (max-width:480px){.stage-prop-cards{display:none}.stage-prop-character{opacity:.48}.room-active:not(.stage-preview-mode) .stage-props{opacity:.1}}
 @media (prefers-reduced-motion:reduce){#controlPanel,.neon-scene,.ambient-object,.stage-haze,.stage-prop{transform:none!important;animation:none!important}.stage-frame{animation:none!important}.stage-pulse{animation:none!important}.cursor-glow,.stage-cursor-light{display:none!important}}
+/* === Clean host launch layout: stage and controls never overlap === */
+.quiz-choice{min-width:0}.quiz-choice-label{display:block;margin:0 0 6px;color:#a9c8ba;font:800 9px/1 "Sora";letter-spacing:.14em;text-transform:uppercase}.quiz-choice select{width:100%!important}
+body:not(:has(#pinDisplay:not(:empty))) .stage-frame{left:0!important;top:64px!important;width:100vw!important;height:min(56.25vw,calc(100dvh - 218px))!important;transform:none!important}
+body:not(:has(#pinDisplay:not(:empty))) .stage-backdrop-start{object-fit:contain!important;object-position:center center!important;background:#010705}
+body:not(:has(#pinDisplay:not(:empty))) .stage-props,.room-active.stage-preview-mode .stage-props{opacity:0!important;visibility:hidden!important}
+.room-active:not(.stage-preview-mode) .stage-props{opacity:.08!important;filter:saturate(.55) brightness(.58)!important}
+.room-active.stage-preview-mode .stage-frame{left:50%!important;top:64px!important;width:100vw!important;height:calc(100dvh - 64px)!important;transform:translate3d(-50%,0,0)!important}
+.room-active.stage-preview-mode .stage-backdrop-start{object-fit:contain!important;object-position:center center!important;background:#010705}
+body:has(#pinDisplay:not(:empty)) .quiz-choice-label{display:none}
+body:has(#pinDisplay:not(:empty)) #crosswordLobbyDifficultyWrap{margin-top:7px!important}
+body:has(#pinDisplay:not(:empty)) #crosswordLobbyDifficultyWrap label{margin-bottom:4px!important;font-size:10px!important}
+body:has(#pinDisplay:not(:empty)) #crosswordLobbyDifficulty{height:36px!important;min-height:36px!important;width:160px!important;margin:0!important}
+body:not(:has(#pinDisplay:not(:empty))) .container{height:calc(100dvh - 64px)!important;padding:0 clamp(12px,2vw,26px) 12px!important;display:flex!important;align-items:flex-end!important;justify-content:center!important}
+body:not(:has(#pinDisplay:not(:empty))) #controlPanelWrapper{width:min(1060px,100%)!important;max-width:1060px!important;height:auto!important;margin:0 auto!important}
+body:not(:has(#pinDisplay:not(:empty))) #controlPanel{height:auto!important;padding:0!important;border:1px solid rgba(98,255,190,.38)!important;border-radius:24px!important;background:linear-gradient(145deg,rgba(2,18,13,.965),rgba(1,10,8,.975))!important;box-shadow:0 22px 55px rgba(0,0,0,.58),0 0 36px rgba(38,221,139,.1),inset 0 1px 0 rgba(214,255,234,.12)!important;backdrop-filter:blur(18px) saturate(120%)!important;overflow:hidden!important}
+body:not(:has(#pinDisplay:not(:empty))) #controlPanel>.panel:first-child{height:auto!important;min-height:0!important;padding:14px 16px 16px!important;display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;grid-template-rows:auto auto!important;column-gap:14px!important;row-gap:9px!important;align-items:end!important;border-radius:23px!important;background:linear-gradient(135deg,rgba(11,43,31,.94),rgba(3,19,14,.96))!important;box-shadow:none!important;backdrop-filter:none!important;overflow:visible!important}
+body:not(:has(#pinDisplay:not(:empty))) #controlPanel>.panel:first-child h1{grid-column:1/-1;margin:0!important;color:#f3fff9!important;font-size:clamp(20px,2vw,27px)!important;line-height:1!important;letter-spacing:-.035em!important;text-shadow:none!important}
+body:not(:has(#pinDisplay:not(:empty))) .create-controls{grid-column:1;display:grid!important;grid-template-columns:minmax(220px,1fr) auto!important;gap:10px!important;align-items:end!important}
+body:not(:has(#pinDisplay:not(:empty))) .create-controls select,body:not(:has(#pinDisplay:not(:empty))) .create-controls button{height:48px!important;min-height:48px!important}
+body:not(:has(#pinDisplay:not(:empty))) .create-controls button{min-width:190px!important;padding:0 22px!important;background:linear-gradient(135deg,#23c982,#60efb1)!important;color:#03140d!important;border-color:rgba(158,255,215,.48)!important;box-shadow:0 10px 28px rgba(32,213,135,.24)!important;font-size:13px!important}
+body:not(:has(#pinDisplay:not(:empty))) .create-controls button:hover{background:linear-gradient(135deg,#35dc94,#7bffc4)!important;color:#02110b!important;box-shadow:0 13px 34px rgba(42,230,150,.34)!important;transform:translateY(-1px)}
+body:not(:has(#pinDisplay:not(:empty))) #crosswordLobbyDifficultyWrap{grid-column:2;margin:0!important;min-width:154px}.quiz-choice select,body:not(:has(#pinDisplay:not(:empty))) #crosswordLobbyDifficulty{height:48px!important;background:rgba(1,10,7,.9)!important;border-color:rgba(107,255,194,.3)!important}
+body:not(:has(#pinDisplay:not(:empty))) #pinDisplay,body:not(:has(#pinDisplay:not(:empty))) .neon-scene{display:none!important}
+@media (max-width:780px){body:not(:has(#pinDisplay:not(:empty))) .stage-frame{top:56px!important;height:min(56.25vw,calc(100dvh - 310px))!important}.room-active.stage-preview-mode .stage-frame{top:56px!important;height:calc(100dvh - 56px)!important}body:not(:has(#pinDisplay:not(:empty))) .container{height:calc(100dvh - 56px)!important;padding:0 9px 9px!important}body:not(:has(#pinDisplay:not(:empty))) #controlPanelWrapper{height:auto!important}body:not(:has(#pinDisplay:not(:empty))) #controlPanel{height:auto!important;border-radius:20px!important}body:not(:has(#pinDisplay:not(:empty))) #controlPanel>.panel:first-child{display:block!important;height:auto!important;padding:13px!important;border-radius:19px!important;overflow:visible!important}body:not(:has(#pinDisplay:not(:empty))) #controlPanel>.panel:first-child h1{font-size:22px!important;margin-bottom:11px!important}body:not(:has(#pinDisplay:not(:empty))) .create-controls{display:grid!important;grid-template-columns:1fr!important;gap:8px!important}body:not(:has(#pinDisplay:not(:empty))) .create-controls button{width:100%!important;min-width:0!important}body:not(:has(#pinDisplay:not(:empty))) #crosswordLobbyDifficultyWrap{margin-top:10px!important;min-width:0}}
 </style>
 
 
@@ -2783,9 +2807,11 @@ body:has(#pinDisplay:not(:empty)) #controlPanel>.panel:nth-child(2){background:r
 
 <div class="panel">
 <div class="section-kicker">01 · SESSION SETUP</div>
-<h1>Создание игры</h1>
+<h1>Создание комнаты</h1>
 <p class="panel-subtitle">Выберите тест, создайте комнату и поделитесь PIN-кодом с игроками.</p>
 <div class="create-controls">
+<div class="quiz-choice">
+<label class="quiz-choice-label" for="quizSelect">Выберите тест</label>
 <select id="quizSelect" onchange="handleQuizChange()">
     <option value="Механики и экономика">Механики и экономика</option>
     <option value="Кроссворды">Кроссворды</option>
@@ -2802,7 +2828,8 @@ body:has(#pinDisplay:not(:empty)) #controlPanel>.panel:nth-child(2){background:r
     <option value="Угадай персонажа по описанию">Угадай персонажа по описанию</option>
     <option value="Угадай слово связанное с игрой">Угадай слово связанное с игрой</option>
 </select>
-<button class="primary" onclick="createRoom()">Создать</button>
+</div>
+<button class="primary" onclick="createRoom()">Создать комнату</button>
 </div>
 <div id="crosswordLobbyDifficultyWrap" style="display:none;margin-top:14px;">
 <label style="display:block;font-size:13px;opacity:.78;margin-bottom:8px;">Сложность кроссворда</label>
