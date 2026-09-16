@@ -2648,7 +2648,14 @@ html{background:#020806!important}
 body{background:radial-gradient(70vw 44vw at 50% 28%,rgba(18,136,85,.2),transparent 70%),linear-gradient(180deg,#020806,#010403)!important}
 .stage-world{inset:0!important;background:radial-gradient(ellipse at center,#0a291c 0%,#03110c 74%,#010705 100%)!important}
 .stage-frame{position:absolute;left:50%;top:50%;width:100vw;height:100dvh;aspect-ratio:auto;transform:translate3d(-50%,-50%,0);transform-origin:center;will-change:transform}
-.stage-backdrop{inset:0!important;width:100%!important;height:100%!important;object-fit:fill!important;transform:none!important;filter:saturate(1.1) contrast(1.03) brightness(1.04)!important}
+.stage-backdrop{inset:0!important;width:100%!important;height:100%!important;object-fit:fill!important;transform:none;filter:saturate(1.1) contrast(1.03) brightness(1.04)!important;opacity:0;transition:opacity .9s ease,filter .9s ease;will-change:opacity,transform,filter}
+.stage-backdrop-start{opacity:1;animation:startStageBreath 14s ease-in-out infinite alternate}
+.stage-backdrop-room{opacity:0}
+body:has(#pinDisplay:not(:empty)) .stage-backdrop-start{opacity:0;animation:none}
+body:has(#pinDisplay:not(:empty)) .stage-backdrop-room{opacity:1}
+.room-active .stage-backdrop-start{opacity:0!important;animation:none!important}
+.room-active .stage-backdrop-room{opacity:1!important}
+@keyframes startStageBreath{0%{transform:scale(1.018);filter:saturate(1.04) contrast(1.02) brightness(.94)}50%{filter:saturate(1.14) contrast(1.04) brightness(1.04)}100%{transform:scale(1.035);filter:saturate(1.18) contrast(1.04) brightness(1.08)}}
 .stage-world::after{z-index:3;background:radial-gradient(ellipse 92% 118% at 50% 50%,transparent 54%,rgba(0,10,6,.08) 72%,rgba(0,6,4,.25) 100%),radial-gradient(ellipse 34% 90% at -8% 50%,rgba(0,8,5,.28),transparent 100%),radial-gradient(ellipse 34% 90% at 108% 50%,rgba(0,8,5,.28),transparent 100%)!important;mix-blend-mode:normal!important}
 .stage-haze{background:linear-gradient(104deg,transparent 12%,rgba(70,255,174,.05) 34%,transparent 51%,rgba(121,255,181,.04) 70%,transparent 88%)!important}
 .stage-pulse{background:radial-gradient(circle,rgba(88,255,183,.2),rgba(32,189,119,.07) 44%,transparent 72%)!important}
@@ -2660,7 +2667,8 @@ body{background:radial-gradient(70vw 44vw at 50% 28%,rgba(18,136,85,.2),transpar
 .stage-demo-answer{--cell-accent:#55ffb4;display:flex;align-items:center;justify-content:center;gap:clamp(3px,.5vw,9px);min-width:0;padding:0 5%;color:#edfff6;font:700 clamp(8px,.88vw,16px)/1.1 "Sora";white-space:nowrap}
 .stage-demo-answer span{flex:0 0 auto;width:clamp(11px,1.22vw,21px);aspect-ratio:1;display:grid;place-items:center;border:1px solid color-mix(in srgb,var(--cell-accent),transparent 22%);border-radius:50%;color:var(--cell-accent);font-size:clamp(5px,.48vw,8px);box-shadow:0 0 14px color-mix(in srgb,var(--cell-accent),transparent 55%)}
 .stage-demo-answer:nth-child(2){--cell-accent:#8dffd2}.stage-demo-answer:nth-child(3){--cell-accent:#c7ff73}.stage-demo-answer:nth-child(4){--cell-accent:#45e9ff}
-body.game-mode .stage-demo{opacity:0}
+body:not(:has(#pinDisplay:not(:empty))) .stage-demo,body.game-mode .stage-demo{opacity:0}
+.stage-smoke{position:absolute;z-index:2;bottom:-18%;width:58vw;height:46vh;pointer-events:none;opacity:.32;filter:blur(28px);background:radial-gradient(ellipse at 50% 70%,rgba(118,255,188,.3),rgba(30,171,102,.13) 36%,transparent 72%);mix-blend-mode:screen;animation:smokeDrift 12s ease-in-out infinite alternate}.stage-smoke-left{left:-16%;animation-delay:-4s}.stage-smoke-right{right:-16%;animation-direction:alternate-reverse}@keyframes smokeDrift{0%{transform:translate3d(-2%,10%,0) scale(.9);opacity:.18}50%{opacity:.38}100%{transform:translate3d(6%,-12%,0) scale(1.12);opacity:.28}}
 .brand-bar{background:rgba(1,8,6,.78)!important;border-bottom-color:rgba(82,255,181,.16)!important;box-shadow:0 10px 34px rgba(0,0,0,.3)!important}
 .brand-glyph{border-color:rgba(84,255,181,.62)!important;background:linear-gradient(145deg,rgba(84,255,181,.16),rgba(17,126,79,.12))!important;box-shadow:inset 0 0 0 5px rgba(255,255,255,.025),0 0 26px rgba(84,255,181,.2)!important}
 .brand-actions{display:flex;align-items:center;gap:14px}.stage-preview-button{height:34px;padding:0 14px;border:1px solid rgba(92,255,186,.28);border-radius:999px;background:rgba(8,38,27,.46);color:#baffdb;font:800 9px/1 "Sora";letter-spacing:.16em;text-transform:uppercase;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);cursor:pointer}.stage-preview-button:hover{background:rgba(33,126,87,.5);border-color:rgba(110,255,199,.58);transform:translateY(-1px)}
@@ -2672,6 +2680,20 @@ body.game-mode .stage-demo{opacity:0}
 select,input[type="text"],input[type="number"]{background:rgba(1,8,7,.72)!important;border-color:rgba(103,255,193,.2)!important}
 .primary{background:linear-gradient(135deg,#08794f,#21bd7d)!important;border-color:rgba(109,255,197,.3)!important}.success{background:linear-gradient(135deg,#16c77e,#55eba9)!important;border-color:rgba(113,255,200,.36)!important;color:#03120c!important}.success:hover,#startGameBtn:hover{background:linear-gradient(135deg,#22d88d,#70f6ba)!important;color:#03120c!important;border-color:rgba(141,255,211,.58)!important;box-shadow:0 14px 38px rgba(31,220,137,.23)!important}.danger{background:rgba(3,16,12,.48)!important;color:#bfffe0!important;border-color:rgba(107,255,195,.2)!important}
 .stage-preview-mode #controlPanelWrapper{opacity:0;visibility:hidden;pointer-events:none;transform:translateY(12px) scale(.97)}#controlPanelWrapper{transition:opacity .3s ease,visibility .3s ease,transform .3s ease}.stage-preview-mode .stage-demo{opacity:1}.stage-preview-mode .stage-frame{filter:brightness(1.08) saturate(1.08)}body.game-mode .stage-demo{opacity:0!important}body.game-mode .stage-preview-button{display:none}
+body:not(:has(#pinDisplay:not(:empty))) .stage-preview-button{display:none}
+body:not(:has(#pinDisplay:not(:empty))) .container{align-items:flex-end!important;padding-bottom:clamp(18px,4vh,42px)!important}
+body:not(:has(#pinDisplay:not(:empty))) #controlPanelWrapper{max-width:720px!important;height:auto!important}
+body:not(:has(#pinDisplay:not(:empty))) #controlPanel{display:block!important;height:auto!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;backdrop-filter:none!important;overflow:visible!important}
+body:not(:has(#pinDisplay:not(:empty))) #controlPanel::before{display:none}
+body:not(:has(#pinDisplay:not(:empty))) #controlPanel>.panel:first-child{display:block!important;height:auto!important;padding:14px 18px!important;border:0!important;border-radius:22px!important;background:linear-gradient(135deg,rgba(0,12,8,.08),rgba(0,8,5,.16))!important;box-shadow:inset 0 1px 0 rgba(194,255,224,.12)!important;backdrop-filter:blur(2px) saturate(112%)!important}
+body:not(:has(#pinDisplay:not(:empty))) #controlPanel>.panel:nth-child(2){display:none!important}
+body:not(:has(#pinDisplay:not(:empty))) .section-kicker,body:not(:has(#pinDisplay:not(:empty))) .panel-subtitle,body:not(:has(#pinDisplay:not(:empty))) .neon-scene{display:none!important}
+body:not(:has(#pinDisplay:not(:empty))) .panel h1{margin:0 0 10px!important;font-size:clamp(24px,2.3vw,34px)!important;text-shadow:0 3px 20px rgba(0,0,0,.85)}
+body:not(:has(#pinDisplay:not(:empty))) .create-controls{grid-template-columns:minmax(0,1fr) auto!important}
+body:not(:has(#pinDisplay:not(:empty))) .create-controls select,body:not(:has(#pinDisplay:not(:empty))) .create-controls button{height:48px!important;min-height:48px!important}
+body:has(#pinDisplay:not(:empty)) #controlPanel{background:radial-gradient(620px 340px at 18% 0%,rgba(46,203,134,.13),transparent 68%),linear-gradient(145deg,rgba(3,18,13,.91),rgba(1,10,7,.94))!important;border-color:rgba(96,255,188,.28)!important;box-shadow:0 30px 90px rgba(0,5,3,.52),inset 0 1px 0 rgba(218,255,238,.11)!important;backdrop-filter:blur(18px) saturate(118%)!important}
+body:has(#pinDisplay:not(:empty)) #controlPanel>.panel{background:linear-gradient(145deg,rgba(7,30,22,.74),rgba(2,15,10,.82))!important}
+body:has(#pinDisplay:not(:empty)) #controlPanel>.panel:nth-child(2){background:rgba(1,13,9,.78)!important}
 @media (min-width:781px){.container{display:flex!important;align-items:center!important;justify-content:center!important}#controlPanelWrapper{max-width:780px!important;height:min(80%,560px)!important}#controlPanel{grid-template-rows:minmax(205px,.84fr) minmax(245px,1.16fr)!important;padding:8px!important}#controlPanel>.panel{padding:12px 18px!important}.panel h1,.panel h2{font-size:30px!important}.panel-subtitle{font-size:11px!important;margin-bottom:8px!important}.section-kicker{margin-bottom:6px!important}.create-controls select,.create-controls button{height:44px!important;min-height:44px!important}.team-mode-shell{padding:8px!important}.team-mode-row{gap:6px!important}.team-toggle,.team-size-group,.team-mode-row button{min-height:40px!important;height:40px!important}.players{min-height:48px!important;max-height:56px!important;margin-top:6px!important;padding:6px!important}.lobby-actions{margin-top:6px!important}.lobby-actions button{height:44px!important}.fair-play-note{display:none!important}}
 @media (max-width:780px){.stage-frame{width:100vw;height:100dvh;top:50%;transform:translate3d(-50%,-50%,0)}.stage-backdrop{object-fit:contain!important}.stage-demo{display:none}.stage-preview-button{height:30px;padding:0 9px;font-size:7px}.stage-preview-mode .stage-demo{display:block}#controlPanel{background:linear-gradient(145deg,rgba(3,14,11,.58),rgba(1,8,7,.7))!important;backdrop-filter:blur(8px) saturate(108%)!important}}
 @media (prefers-reduced-motion:reduce){#controlPanel,.neon-scene,.ambient-object,.stage-haze{transform:none!important;animation:none!important}.stage-frame{animation:none!important}.stage-pulse{animation:none!important}.cursor-glow,.stage-cursor-light{display:none!important}}
@@ -2683,7 +2705,7 @@ select,input[type="text"],input[type="number"]{background:rgba(1,8,7,.72)!import
 
 
 </head>
-<body class="stage-preview-mode">
+<body>
 
 <header class="brand-bar">
     <a class="brand-lockup" href="/host.html" aria-label="Questra Live">
@@ -2691,14 +2713,15 @@ select,input[type="text"],input[type="number"]{background:rgba(1,8,7,.72)!import
         <span class="brand-name">QUESTRA<small>LIVE STUDIO</small></span>
     </a>
     <div class="brand-actions">
-        <button id="stagePreviewBtn" class="stage-preview-button" type="button" aria-pressed="true">Открыть меню</button>
+        <button id="stagePreviewBtn" class="stage-preview-button" type="button" aria-pressed="false">Показать сцену</button>
         <div class="brand-status"><i></i> SYSTEM READY</div>
     </div>
 </header>
 
 <div class="stage-world" aria-hidden="true">
     <div class="stage-frame">
-        <img class="stage-backdrop" src="/static/assets/questra-stage-v4.jpg" alt="">
+        <img class="stage-backdrop stage-backdrop-start" src="/static/assets/mr-smoke-stage-start-v1.jpg" alt="">
+        <img class="stage-backdrop stage-backdrop-room" src="/static/assets/questra-stage-v4.jpg" alt="">
         <div class="stage-demo">
             <div class="stage-demo-kicker">QUESTRA · DEMO ROUND</div>
             <div class="stage-demo-question">Mr Smoke — стример по какой игре?</div>
@@ -2710,6 +2733,8 @@ select,input[type="text"],input[type="number"]{background:rgba(1,8,7,.72)!import
             </div>
         </div>
     </div>
+    <div class="stage-smoke stage-smoke-left"></div>
+    <div class="stage-smoke stage-smoke-right"></div>
     <div class="stage-haze"></div>
     <div class="stage-pulse"></div>
     <div class="stage-cursor-light"></div>
@@ -3098,6 +3123,7 @@ function handleHostPlayerSocketMessage(event){
 function updatePinBadge(){
     const pinDisplay = document.getElementById("pinDisplay");
     const pinBadge = document.getElementById("roomPinBadge");
+    document.body.classList.toggle("room-active", Boolean(currentPin));
     if(pinDisplay){
         pinDisplay.innerText = currentPin || "";
     }
