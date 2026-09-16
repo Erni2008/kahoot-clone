@@ -4219,6 +4219,15 @@ async def close_room(room: str):
 async def _websocket_endpoint_impl(websocket: WebSocket, role: str, room: str, username: str):
     await websocket.accept()
 
+    username = " ".join(str(username or "").split())
+    if not username or len(username) > 40:
+        await websocket.send_json({
+            "type": "error",
+            "message": "Имя игрока должно содержать от 1 до 40 символов"
+        })
+        await websocket.close()
+        return
+
     if room not in rooms:
         await websocket.send_json({
             "type": "error",
@@ -5273,6 +5282,8 @@ async def send_question(room):
 
     await broadcast(room, {
         "type": "question",
+        "question_number": index + 1,
+        "question_total": len(quiz),
         "question_type": question.get("type", "mcq"),
         "question": display_question_text,
         "prompt": question.get("prompt"),
@@ -5295,6 +5306,8 @@ async def send_question(room):
     })
     room_data["current_payload"] = {
         "type": "question",
+        "question_number": index + 1,
+        "question_total": len(quiz),
         "question_type": question.get("type", "mcq"),
         "question": display_question_text,
         "prompt": question.get("prompt"),

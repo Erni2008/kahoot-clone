@@ -60,3 +60,19 @@ def test_host_socket_can_submit_an_answer(monkeypatch):
             if host.receive_json().get("type") == "progress":
                 break
         assert main.rooms[pin]["answers"]["Ведущий"]["selected"] == 0
+
+
+def test_invalid_player_name_is_rejected(monkeypatch):
+    monkeypatch.setattr(main, "QUIZZES", {"Smoke": []})
+    main.rooms.clear()
+    client = TestClient(main.app)
+    pin = client.get("/create-room", params={"quiz": "Smoke"}).json()["pin"]
+
+    with client.websocket_connect(f"/ws/player?room={pin}&username={'x' * 41}") as player:
+        message = player.receive_json()
+
+    assert message == {
+        "type": "error",
+        "message": "Имя игрока должно содержать от 1 до 40 символов",
+    }
+    assert main.rooms[pin]["players"] == {}
